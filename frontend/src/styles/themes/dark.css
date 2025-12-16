@@ -1,0 +1,304 @@
+/* Dark theme specific styles */
+:root.dark {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+  --color-secondary: #8b5cf6;
+  --color-secondary-hover: #7c3aed;
+  --color-secondary-active: #6d28d9;
+  --color-success: #10b981;
+  --color-success-hover: #059669;
+  --color-success-active: #047857;
+  --color-warning: #f59e0b;
+  --color-warning-hover: #d97706;
+  --color-warning-active: #b45309;
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-active: #b91c1c;
+
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-elevated: #334155;
+  --color-surface-hover: #475569;
+  --color-surface-active: #64748b;
+
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-disabled: #475569;
+
+  --color-border: #334155;
+  --color-border-hover: #475569;
+  --color-border-active: #64748b;
+
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-overlay: rgba(0, 0, 0, 0.7);
+
+  --color-code-background: #1e293b;
+  --color-code-text: #f1f5f9;
+  --color-code-comment: #64748b;
+  --color-code-keyword: #8b5cf6;
+  --color-code-string: #10b981;
+  --color-code-number: #f59e0b;
+  --color-code-function: #3b82f6;
+  --color-code-variable: #ef4444;
+
+  --color-terminal-background: #000000;
+  --color-terminal-text: #e2e8f0;
+  --color-terminal-prompt: #60a5fa;
+  --color-terminal-error: #f87171;
+  --color-terminal-success: #34d399;
+  --color-terminal-warning: #fbbf24;
+  --color-terminal-info: #60a5fa;
+
+  --color-editor-background: #0f172a;
+  --color-editor-text: #f1f5f9;
+  --color-editor-selection: #1e3a8a;
+  --color-editor-cursor: #f1f5f9;
+  --color-editor-line-number: #64748b;
+  --color-editor-line-highlight: #1e293b;
+  --color-editor-gutter: #0f172a;
+}
+
+/* Component overrides for dark theme */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--color-primary-active);
+}
+
+.btn-secondary {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.btn-secondary:active {
+  background-color: var(--color-surface-active);
+}
+
+.input {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.card {
+  background-color: var(--color-surface-elevated);
+  border-color: var(--color-border);
+  box-shadow: 0 4px 6px var(--color-shadow);
+}
+
+.alert-success {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: var(--color-success);
+}
+
+.alert-warning {
+  background-color: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--color-warning);
+}
+
+.alert-error {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--color-danger);
+}
+
+.alert-info {
+  background-color: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: var(--color-primary);
+}
+
+/* Editor overrides */
+.editor-container {
+  background-color: var(--color-editor-background);
+  border-color: var(--color-border);
+}
+
+.editor-toolbar {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+/* Terminal overrides */
+.terminal-container {
+  background-color: var(--color-terminal-background);
+  color: var(--color-terminal-text);
+}
+
+.terminal-prompt {
+  color: var(--color-terminal-prompt);
+}
+
+/* Chat overrides */
+.chat-message-user {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: var(--color-primary);
+}
+
+.chat-message-assistant {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* File tree overrides */
+.file-tree-item:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.file-tree-item-selected {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Settings overrides */
+.settings-section-title {
+  color: var(--color-text);
+}
+
+.settings-label {
+  color: var(--color-text-secondary);
+}
+
+.settings-description {
+  color: var(--color-text-tertiary);
+}
+
+/* Scrollbar overrides */
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-hover);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-border-active);
+}
+
+/* Selection overrides */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Monaco Editor dark theme overrides */
+.monaco-editor .margin {
+  background-color: var(--color-editor-gutter) !important;
+}
+
+.monaco-editor .line-numbers {
+  color: var(--color-editor-line-number) !important;
+}
+
+.monaco-editor .current-line {
+  background-color: var(--color-editor-line-highlight) !important;
+}
+
+.monaco-editor .view-overlays .current-line {
+  border: none !important;
+}
+
+.monaco-editor .cursors-layer .cursor {
+  background-color: var(--color-editor-cursor) !important;
+}
+
+.monaco-editor .selected-text {
+  background-color: var(--color-editor-selection) !important;
+}
+
+/* Xterm.js dark theme overrides */
+.xterm-viewport {
+  background-color: var(--color-terminal-background) !important;
+}
+
+.xterm-screen {
+  background-color: var(--color-terminal-background) !important;
+}
+
+.xterm-selection {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Element Plus dark theme overrides */
+.el-button--primary {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.el-button--primary:hover {
+  background-color: var(--color-primary-hover) !important;
+  border-color: var(--color-primary-hover) !important;
+}
+
+.el-button--primary:active {
+  background-color: var(--color-primary-active) !important;
+  border-color: var(--color-primary-active) !important;
+}
+
+.el-input__wrapper {
+  background-color: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+}
+
+.el-input__inner {
+  color: var(--color-text) !important;
+}
+
+.el-tabs__item {
+  color: var(--color-text-secondary) !important;
+}
+
+.el-tabs__item.is-active {
+  color: var(--color-primary) !important;
+}
+
+.el-tabs__active-bar {
+  background-color: var(--color-primary) !important;
+}
+
+.el-dialog {
+  background-color: var(--color-surface-elevated) !important;
+  border-color: var(--color-border) !important;
+}
+
+.el-dialog__title {
+  color: var(--color-text) !important;
+}
+
+.el-table {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
+}
+
+.el-table th {
+  background-color: var(--color-surface-elevated) !important;
+  color: var(--color-text) !important;
+  border-color: var(--color-border) !important;
+}
+
+.el-table td {
+  border-color: var(--color-border) !important;
+}
+
+.el-table tr {
+  background-color: var(--color-surface) !important;
+}
+
+.el-table tr:hover {
+  background-color: var(--color-surface-hover) !important;
+}

@@ -1,0 +1,17 @@
+{
+  "name": "code-ai-assistant",
+  "version": "1.0.0",
+  "description": "A desktop application with code editor, AI chat assistant, CLI output and terminal functionality",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --dir frontend dev",
+    "build": "pnpm --dir frontend build",
+    "preview": "pnpm --dir frontend preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

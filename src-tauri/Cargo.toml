@@ -1,0 +1,85 @@
+[package]
+name = "code-ai-assistant"
+version = "0.1.0"
+description = "A desktop application with code editor, AI chat assistant, CLI output and terminal functionality"
+authors = ["chaorenex1 243537608z@gmail.com"]
+license = "MIT"
+edition = "2021"
+repository = ""
+homepage = ""
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "^2.0.0", features = [] }
+
+[dependencies]
+tauri = { version = "^2.0.0", features = [] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "default-tls"] }
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+config = "0.13"
+clap = { version = "4.0", features = ["derive"] }
+sea-orm = { version = "0.12", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+toml = "0.8"
+dirs = "5.0"
+sysinfo = "0.31"
+
+# Tauri plugins
+tauri-plugin-log = "2.0.0"
+tauri-plugin-store = "2.0.0"
+tauri-plugin-updater = "2.0.0"
+tauri-plugin-single-instance = "2.0.0"
+tauri-plugin-deep-link = "2.0.0"
+tauri-plugin-shell = "2.0.0"
+tauri-plugin-fs = "2.0.0"
+tauri-plugin-process = "2.0.0"
+tauri-plugin-dialog = "2.0.0"
+tauri-plugin-global-shortcut = "2.0.0"
+tauri-plugin-notification = "2.0.0"
+
+[dev-dependencies]
+proptest = "1.4"
+
+[features]
+default = []
+
+[package.metadata.bundle]
+identifier = "com.aduib.codeai.assistant"
+
+[package.metadata.tauri-winres]
+ProductName = "Code AI Assistant"
+FileDescription = "A desktop application with code editor, AI chat assistant, CLI output and terminal functionality"
+LegalCopyright = "Copyright © 2025"
+Icon = "icons/icon.ico"
+
+[profile.dev]
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = 'unwind'
+incremental = true
+codegen-units = 256
+rpath = false
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = true
+panic = 'unwind'
+incremental = false
+codegen-units = 1
+rpath = false

@@ -1,0 +1,184 @@
+/* Light theme specific styles */
+:root {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-secondary: #7c3aed;
+  --color-secondary-hover: #6d28d9;
+  --color-secondary-active: #5b21b6;
+  --color-success: #10b981;
+  --color-success-hover: #059669;
+  --color-success-active: #047857;
+  --color-warning: #f59e0b;
+  --color-warning-hover: #d97706;
+  --color-warning-active: #b45309;
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-active: #b91c1c;
+
+  --color-background: #ffffff;
+  --color-surface: #f8fafc;
+  --color-surface-elevated: #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-surface-active: #e2e8f0;
+
+  --color-text: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-text-tertiary: #94a3b8;
+  --color-text-disabled: #cbd5e1;
+
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-border-active: #94a3b8;
+
+  --color-shadow: rgba(0, 0, 0, 0.1);
+  --color-overlay: rgba(0, 0, 0, 0.5);
+
+  --color-code-background: #f1f5f9;
+  --color-code-text: #1e293b;
+  --color-code-comment: #64748b;
+  --color-code-keyword: #7c3aed;
+  --color-code-string: #059669;
+  --color-code-number: #d97706;
+  --color-code-function: #2563eb;
+  --color-code-variable: #dc2626;
+
+  --color-terminal-background: #0f172a;
+  --color-terminal-text: #f1f5f9;
+  --color-terminal-prompt: #60a5fa;
+  --color-terminal-error: #f87171;
+  --color-terminal-success: #34d399;
+  --color-terminal-warning: #fbbf24;
+  --color-terminal-info: #60a5fa;
+
+  --color-editor-background: #ffffff;
+  --color-editor-text: #1e293b;
+  --color-editor-selection: #dbeafe;
+  --color-editor-cursor: #1e293b;
+  --color-editor-line-number: #94a3b8;
+  --color-editor-line-highlight: #f8fafc;
+  --color-editor-gutter: #f1f5f9;
+}
+
+/* Component overrides for light theme */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--color-primary-active);
+}
+
+.input {
+  background-color: white;
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.card {
+  background-color: var(--color-surface-elevated);
+  border-color: var(--color-border);
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+.alert-success {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: var(--color-success);
+}
+
+.alert-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: var(--color-warning);
+}
+
+.alert-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: var(--color-danger);
+}
+
+.alert-info {
+  background-color: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.2);
+  color: var(--color-primary);
+}
+
+/* Editor overrides */
+.editor-container {
+  background-color: var(--color-editor-background);
+  border-color: var(--color-border);
+}
+
+.editor-toolbar {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+/* Terminal overrides */
+.terminal-container {
+  background-color: var(--color-terminal-background);
+  color: var(--color-terminal-text);
+}
+
+.terminal-prompt {
+  color: var(--color-terminal-prompt);
+}
+
+/* Chat overrides */
+.chat-message-user {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: var(--color-primary);
+}
+
+.chat-message-assistant {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* File tree overrides */
+.file-tree-item:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.file-tree-item-selected {
+  background-color: rgba(37, 99, 235, 0.1);
+}
+
+/* Settings overrides */
+.settings-section-title {
+  color: var(--color-text);
+}
+
+.settings-label {
+  color: var(--color-text-secondary);
+}
+
+.settings-description {
+  color: var(--color-text-tertiary);
+}
+
+/* Scrollbar overrides */
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-hover);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-border-active);
+}
+
+/* Selection overrides */
+::selection {
+  background-color: rgba(37, 99, 235, 0.2);
+}

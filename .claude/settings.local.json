@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo:*)",
+      "Bash(node:*)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm dlx:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(npm --version)",
+      "Bash(rustc:*)",
+      "Bash(pnpm install:all)",
+      "Bash(cat:*)",
+      "Bash(git --version:*)",
+      "Bash(pnpm install)",
+      "Bash(mkdir -p \"C:\\Users\\zarag\\Documents\\aduib-app\\rust-app3\\src-tauri\")",
+      "Bash(pnpm dev)",
+      "Bash(VITE_PORT=5174 pnpm dev)",
+      "Bash(where:*)",
+      "Bash(pnpm --dir frontend dev)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(lsof:*)",
+      "Bash(taskkill:*)",
+      "Bash(kill:*)",
+      "Bash(curl:*)",
+      "Bash(sh:*)",
+      "Bash(source:*)",
+      "Bash(export:*)",
+      "Bash(pnpm tauri dev)",
+      "Bash(pnpm tauri --version)",
+      "Bash(tasklist:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
