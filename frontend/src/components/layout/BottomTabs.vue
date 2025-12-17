@@ -39,7 +39,8 @@ const bottomPanelStyle = computed(() => ({
 
 const toggleBarStyle = computed(() => ({
   left: props.showFileExplorer ? props.sidebarWidth + 4 + 'px' : '0',
-  bottom: props.height + FOOTER_HEIGHT + 'px',
+  // 面板可见时：切换条在面板上方；隐藏时：紧贴 footer 上方
+  bottom: (props.visible ? props.height + FOOTER_HEIGHT : FOOTER_HEIGHT) + 'px',
 }));
 
 function onToggleVisible() {

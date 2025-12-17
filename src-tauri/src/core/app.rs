@@ -4,10 +4,10 @@
 
 use std::sync::{Arc, Mutex};
 use tauri::{App, AppHandle, Manager, State};
-use tracing::info;
 
 use crate::utils::error::AppResult;
 use crate::config::schema::AppConfig;
+use crate::services::terminal::TerminalService;
 
 /// Application state shared across the application
 #[derive(Debug)]
@@ -18,6 +18,8 @@ pub struct AppState {
     pub config: Mutex<AppConfig>,
     /// Database connection pool
     pub db_pool: Arc<crate::database::connection::DatabasePool>,
+    /// Terminal service for managing terminal sessions
+    pub terminal: TerminalService,
 }
 
 impl AppState {
@@ -31,6 +33,7 @@ impl AppState {
             app_handle,
             config: Mutex::new(config),
             db_pool,
+            terminal: TerminalService::new(),
         }
     }
 }
@@ -45,11 +48,19 @@ pub fn init(app: &mut App) -> AppResult<()> {
     app.manage(config.clone());
 
     // Create application state
-    let app_state = AppState::new(
+    let mut app_state = AppState::new(
         app.handle().clone(),
         config,
         Arc::new(crate::database::connection::DatabasePool::new()),
     );
+
+    // Use configured default shell for terminal service if provided
+    {
+        let cfg = app_state.config.lock().unwrap();
+        app_state
+            .terminal
+            .set_default_shell(cfg.cli.default_shell.clone());
+    }
 
     // Store application state in Tauri state
     app.manage(app_state);

@@ -1,22 +1,52 @@
 <script setup lang="ts">
 import { Search, Delete, VideoPause, VideoPlay } from '@element-plus/icons-vue';
 import { ElInput, ElButton, ElSelect, ElOption, ElTooltip } from 'element-plus';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
-const logs = ref<string[]>([
-  '2024-01-15 10:30:25 INFO - 应用启动成功',
-  '2024-01-15 10:30:26 DEBUG - 加载配置文件: config.toml',
-  '2024-01-15 10:30:27 INFO - 数据库连接成功',
-  '2024-01-15 10:30:28 ERROR - 文件读取失败: /path/to/file',
-  '2024-01-15 10:30:29 INFO - AI模型加载完成: claude-3-5-sonnet',
-  '2024-01-15 10:30:30 INFO - 终端初始化完成',
-  '2024-01-15 10:30:31 DEBUG - 监听文件变化',
-  '2024-01-15 10:30:32 INFO - 工作区加载完成: default',
-]);
+import { getLogs, clearLogs as clearLogsCommand } from '@/services/tauri/commands';
+
+const logs = ref<string[]>([]);
 
 const searchQuery = ref('');
 const logLevel = ref('all');
 const isPaused = ref(false);
+
+let refreshTimer: number | null = null;
+
+// 从后端加载日志
+async function loadLogs() {
+  try {
+    const data = await getLogs();
+    logs.value = data;
+  } catch (error) {
+    console.error('加载日志失败:', error);
+  }
+}
+
+function startAutoRefresh() {
+  if (refreshTimer !== null) return;
+  refreshTimer = window.setInterval(() => {
+    if (!isPaused.value) {
+      loadLogs();
+    }
+  }, 3000);
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer !== null) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+onMounted(() => {
+  loadLogs();
+  startAutoRefresh();
+});
+
+onUnmounted(() => {
+  stopAutoRefresh();
+});
 
 // Filter logs based on search and level
 const filteredLogs = computed(() => {
@@ -39,9 +69,14 @@ const filteredLogs = computed(() => {
 });
 
 // Clear logs
-function clearLogs() {
+async function clearLogs() {
   if (confirm('确定要清空所有日志吗？')) {
-    logs.value = [];
+    try {
+      await clearLogsCommand();
+      logs.value = [];
+    } catch (error) {
+      console.error('清空日志失败:', error);
+    }
   }
 }
 
@@ -104,7 +139,7 @@ function togglePause() {
             placement="bottom"
           >
             <ElButton
-              :icon="isPaused ? Play : Pause"
+		      :icon="isPaused ? VideoPlay : VideoPause"
               size="small"
               text
               @click="togglePause"

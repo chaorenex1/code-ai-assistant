@@ -185,7 +185,7 @@ impl Default for AppConfig {
                 port: 8080,
             },
             logging: LoggingSettings {
-                log_level: "info".to_string(),
+                log_level: "debug".to_string(),
                 log_file_path: get_default_data_dir().unwrap() + "/logs",
                 log_file_name: "app.log".to_string(),
                 log_fmt_pattern: Some("%Y-%m-%d %H:%M:%S%.3f %l %T %n %f:%L".to_string()),

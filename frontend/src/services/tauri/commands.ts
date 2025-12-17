@@ -3,13 +3,9 @@ import { invoke } from '@tauri-apps/api/core';
 import type {
   FileEntry,
   FileContent,
-  ChatMessage,
-  ChatResponse,
   AIModel,
   Workspace,
-  AppSettings,
   CommandResult,
-  TerminalSession,
   ApiResponse,
 } from '@/utils/types';
 
@@ -51,12 +47,22 @@ export async function deleteDirectory(path: string): Promise<void> {
 }
 
 // AI chat commands
+// Note: backend `send_chat_message` currently returns a plain string
+// response and accepts `message` and optional `context_files`.
 export async function sendChatMessage(
   message: string,
-  files?: string[],
-  model?: string
-): Promise<ChatResponse> {
-  return invoke('send_chat_message', { message, files, model });
+  contextFiles?: string[]
+): Promise<string> {
+  return invoke('send_chat_message', { message, context_files: contextFiles });
+}
+
+// Streaming AI chat command: backend will emit incremental
+// `ai-response` events while returning a requestId immediately.
+export async function sendChatMessageStreaming(
+  message: string,
+  contextFiles?: string[]
+): Promise<string> {
+  return invoke('send_chat_message_streaming', { message, context_files: contextFiles });
 }
 
 export async function getAIModels(): Promise<AIModel[]> {
@@ -76,12 +82,24 @@ export async function executeCommand(
   return invoke('execute_command', { command, args, cwd });
 }
 
-export async function spawnTerminal(cwd?: string): Promise<TerminalSession> {
+export async function executeTerminalCommand(
+  sessionId: string | undefined,
+  command: string,
+  args?: string[]
+): Promise<string> {
+  return invoke('execute_terminal_command', {
+    session_id: sessionId,
+    command,
+    args: args ?? [],
+  });
+}
+
+export async function spawnTerminal(cwd?: string): Promise<string> {
   return invoke('spawn_terminal', { cwd });
 }
 
 export async function killTerminal(sessionId: string): Promise<void> {
-  return invoke('kill_terminal', { sessionId });
+  return invoke('kill_terminal', { terminal_id: sessionId });
 }
 
 // Settings commands

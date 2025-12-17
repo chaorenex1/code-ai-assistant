@@ -2,7 +2,7 @@
 import { Document, FolderOpened } from '@element-plus/icons-vue';
 import { ElTabs, ElTabPane, ElButton, ElIcon, ElTooltip } from 'element-plus';
 import * as monaco from 'monaco-editor';
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue';
 
 import { useFileStore } from '@/stores/filesStore';
 
@@ -11,43 +11,71 @@ const editorContainer = ref<HTMLElement>();
 const editor = ref<monaco.editor.IStandaloneCodeEditor>();
 const isLoading = ref(false);
 
-// Initialize Monaco Editor
-onMounted(async () => {
-  await nextTick();
+// 处理路径，兼容 Windows 和 POSIX
+function getFileNameFromPath(path: string): string {
+  const parts = path.split(/[/\\]/);
+  return parts[parts.length - 1] || path;
+}
 
-  if (editorContainer.value) {
-    editor.value = monaco.editor.create(editorContainer.value, {
-      value: '',
-      language: 'plaintext',
-      theme: 'vs',
-      fontSize: 14,
-      lineNumbers: 'on',
-      wordWrap: 'on',
-      minimap: { enabled: true },
-      scrollBeyondLastLine: false,
-      automaticLayout: true,
-      formatOnPaste: true,
-      formatOnType: true,
-    });
-
-    // Listen to content changes
-    editor.value.onDidChangeModelContent(() => {
-      if (fileStore.activeFile) {
-        const content = editor.value?.getValue() || '';
-        fileStore.updateFileContent(content);
-      }
-    });
+const duplicateNames = computed(() => {
+  const counts = new Map<string, number>();
+  for (const file of fileStore.openedFiles) {
+    const name = getFileNameFromPath(file.path);
+    counts.set(name, (counts.get(name) || 0) + 1);
   }
+  return new Set<string>(
+    Array.from(counts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([name]) => name)
+  );
+});
 
-  // Watch for active file changes
+function getTabLabel(filePath: string): string {
+  const name = getFileNameFromPath(filePath);
+  return duplicateNames.value.has(name) ? filePath : name;
+}
+
+async function initEditorIfNeeded() {
+  if (editor.value || !editorContainer.value) return;
+
+  editor.value = monaco.editor.create(editorContainer.value, {
+    value: '',
+    language: 'plaintext',
+    theme: 'vs',
+    fontSize: 14,
+    lineNumbers: 'on',
+    wordWrap: 'on',
+    minimap: { enabled: true },
+    scrollBeyondLastLine: false,
+    automaticLayout: true,
+    formatOnPaste: true,
+    formatOnType: true,
+  });
+
+  editor.value.onDidChangeModelContent(() => {
+    if (fileStore.activeFile) {
+      const content = editor.value?.getValue() || '';
+      fileStore.updateFileContent(content);
+    }
+  });
+}
+
+// Initialize Monaco Editor & react to active file changes
+onMounted(() => {
   watch(
     () => fileStore.activeFile,
-    (newFile) => {
-      if (newFile && editor.value) {
-        const model = editor.value.getModel();
-        if (model) {
-          model.setValue(newFile.content);
-          monaco.editor.setModelLanguage(model, newFile.language || 'plaintext');
+    async (newFile) => {
+      if (newFile) {
+        // 确保容器已渲染再创建编辑器
+        await nextTick();
+        await initEditorIfNeeded();
+
+        if (editor.value) {
+          const model = editor.value.getModel();
+          if (model) {
+            model.setValue(newFile.content);
+            monaco.editor.setModelLanguage(model, newFile.language || 'plaintext');
+          }
         }
       } else if (editor.value) {
         editor.value.setValue('');
@@ -132,7 +160,12 @@ function switchToFile(index: number) {
         >
           <template #label>
             <div class="flex items-center">
-              <span class="mr-2">{{ file.path.split('/').pop() }}</span>
+              <span
+                class="mr-2 max-w-[180px] truncate"
+                :title="file.path"
+              >
+                {{ getTabLabel(file.path) }}
+              </span>
               <span
                 v-if="file.modified"
                 class="text-warning"

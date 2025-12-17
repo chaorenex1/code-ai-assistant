@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::utils::error::{AppError, AppResult};
 
 /// Terminal session
+#[derive(Debug)]
 pub struct TerminalSession {
     /// Session ID
     pub id: String,
@@ -44,6 +45,7 @@ impl TerminalSession {
 }
 
 /// Terminal Service for managing terminal sessions
+#[derive(Debug)]
 pub struct TerminalService {
     /// Active terminal sessions
     sessions: Arc<Mutex<HashMap<String, TerminalSession>>>,

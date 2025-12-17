@@ -32,7 +32,11 @@ const defaultProps = {
 
 // 初始化根目录列表
 onMounted(async () => {
-  await fileStore.loadDirectory();
+  // 如果已经在其他地方加载过目录（例如最近目录或设置面板），直接使用现有数据
+  if (!fileStore.files.length) {
+    await fileStore.loadDirectory();
+  }
+
   treeData.value = fileStore.files.map((file) => ({
     name: file.name,
     path: file.path,
@@ -59,13 +63,13 @@ watch(
   { deep: true }
 );
 
-// 懒加载子目录
+// 懒加载子目录（根节点完全由 treeData 提供）
 async function loadNode(node: any, resolve: (data: FileNode[]) => void) {
   const data = node.data as FileNode | undefined;
 
+  // 根节点使用 :data="treeData"，这里不再处理
   if (!data) {
-    // 根节点已通过 treeData 提供
-    return resolve(treeData.value);
+    return resolve([]);
   }
 
   if (!data.isDirectory) {
@@ -98,7 +102,7 @@ async function loadNode(node: any, resolve: (data: FileNode[]) => void) {
 }
 
 // 过滤节点（搜索）
-function filterNode(value: string, data: FileNode) {
+function filterNode(value: string, data: any) {
   if (!value) return true;
   return data.name.toLowerCase().includes(value.toLowerCase());
 }

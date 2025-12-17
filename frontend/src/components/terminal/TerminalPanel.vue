@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
-import { Plus, Close, Refresh } from '@element-plus/icons-vue';
+import { Plus, Refresh } from '@element-plus/icons-vue';
 import { ElTabs, ElTabPane, ElButton, ElSelect, ElOption } from 'element-plus';
+import type { TabsPaneContext, TabPaneName } from 'element-plus';
 
 import { useAppStore } from '@/stores/workspaceStore';
+import { spawnTerminal, killTerminal, executeTerminalCommand } from '@/services/tauri/commands';
 
 const appStore = useAppStore();
 const terminalContainer = ref<HTMLElement>();
-const terminals = ref<{ id: string; name: string; terminal: Terminal }[]>([]);
-const activeTerminalIndex = ref(0);
-const fitAddon = ref<FitAddon>();
+const terminals = ref<{ id: string; name: string; terminal: Terminal; sessionId: string }[]>([]);
+const activeTerminalIndex = ref<TabPaneName>(0);
 
 // Initialize terminal
 onMounted(() => {
@@ -28,10 +28,19 @@ onUnmounted(() => {
   });
 });
 
-// Create new terminal
-function createNewTerminal() {
+// Create new terminal (with backend session)
+async function createNewTerminal() {
   const id = `terminal-${Date.now()}`;
   const name = `终端 ${terminals.value.length + 1}`;
+
+  // Create backend terminal session
+  let sessionId: string;
+  try {
+    sessionId = await spawnTerminal('.');
+  } catch (error) {
+    console.error('Failed to spawn terminal session:', error);
+    return;
+  }
 
   // Create terminal instance
   const terminal = new Terminal({
@@ -57,8 +66,8 @@ function createNewTerminal() {
   terminal.loadAddon(fitAddonInstance);
   terminal.loadAddon(webLinksAddon);
 
-  // Store terminal
-  terminals.value.push({ id, name, terminal });
+  // Store terminal and its backend session id
+  terminals.value.push({ id, name, terminal, sessionId });
   activeTerminalIndex.value = terminals.value.length - 1;
 
   // Initialize terminal after DOM update
@@ -73,47 +82,104 @@ function createNewTerminal() {
       terminal.writeln('输入 "help" 查看可用命令');
       terminal.writeln('');
 
-      // Set up command handling
-      setupCommandHandling(terminal);
+      // Set up command handling bound to this backend session
+      setupCommandHandling(terminal, sessionId);
     }
   });
 }
 
-// Set up command handling
-function setupCommandHandling(terminal: Terminal) {
+// Set up command handling（带简单历史）
+function setupCommandHandling(terminal: Terminal, sessionId: string) {
   let command = '';
+  const history: string[] = [];
+  let historyIndex = -1;
 
-  terminal.onData((data) => {
-    if (data === '\r') {
-      // Enter key
-      terminal.writeln('');
-      handleCommand(command, terminal);
-      command = '';
-      terminal.write('$ ');
-    } else if (data === '\u007F') {
-      // Backspace
-      if (command.length > 0) {
-        command = command.slice(0, -1);
-        terminal.write('\b \b');
+  const prompt = () => {
+    terminal.write('$ ');
+  };
+
+  const eraseCurrentInput = () => {
+    for (let i = 0; i < command.length; i += 1) {
+      terminal.write('\b \b');
+    }
+  };
+
+  terminal.onKey(async ({ key, domEvent }) => {
+    const printable =
+      !domEvent.altKey &&
+      !domEvent.ctrlKey &&
+      !domEvent.metaKey &&
+      domEvent.key.length === 1;
+
+    switch (domEvent.key) {
+      case 'Enter': {
+        terminal.writeln('');
+        await handleCommand(command, terminal, sessionId);
+        if (command.trim()) {
+          history.push(command);
+          historyIndex = history.length;
+        }
+        command = '';
+        prompt();
+        break;
       }
-    } else if (data === '\u0003') {
-      // Ctrl+C
-      terminal.writeln('^C');
-      command = '';
-      terminal.write('$ ');
-    } else if (data >= ' ' && data <= '~') {
-      // Printable characters
-      command += data;
-      terminal.write(data);
+      case 'Backspace': {
+        if (command.length > 0) {
+          command = command.slice(0, -1);
+          terminal.write('\b \b');
+        }
+        break;
+      }
+      case 'ArrowUp': {
+        if (history.length === 0) break;
+        if (historyIndex > 0) {
+          historyIndex -= 1;
+        } else {
+          historyIndex = 0;
+        }
+        eraseCurrentInput();
+        command = history[historyIndex] ?? '';
+        terminal.write(command);
+        break;
+      }
+      case 'ArrowDown': {
+        if (history.length === 0) break;
+        if (historyIndex < history.length - 1) {
+          historyIndex += 1;
+          command = history[historyIndex] ?? '';
+        } else {
+          historyIndex = history.length;
+          command = '';
+        }
+        eraseCurrentInput();
+        terminal.write(command);
+        break;
+      }
+      default: {
+        if (domEvent.ctrlKey && (domEvent.key === 'c' || domEvent.key === 'C')) {
+          terminal.writeln('^C');
+          command = '';
+          prompt();
+        } else if (printable) {
+          command += key;
+          terminal.write(key);
+        }
+        break;
+      }
     }
   });
 
   // Initial prompt
-  terminal.write('$ ');
+  prompt();
 }
 
 // Handle command execution
-async function handleCommand(command: string, terminal: Terminal) {
+async function handleCommand(command: string, terminal: Terminal, sessionId?: string) {
+  if (!sessionId) {
+    terminal.writeln('\x1b[1;31m错误: 无效的终端会话\x1b[0m');
+    terminal.write('$ ');
+    return;
+  }
   const trimmedCommand = command.trim();
 
   if (!trimmedCommand) {
@@ -146,14 +212,10 @@ async function handleCommand(command: string, terminal: Terminal) {
     return;
   }
 
-  // Execute command via Tauri
+  // Execute command via backend terminal session
   try {
     const [cmd, ...args] = trimmedCommand.split(' ');
-    const result = await invoke('execute_command', {
-      command: cmd,
-      args,
-      cwd: '.',
-    });
+    const result = await executeTerminalCommand(sessionId!, cmd, args);
 
     if (result) {
       terminal.writeln(result);
@@ -166,27 +228,41 @@ async function handleCommand(command: string, terminal: Terminal) {
 }
 
 // Close terminal
-function closeTerminal(index: number) {
-  if (terminals.value[index]) {
-    terminals.value[index].terminal.dispose();
+function closeTerminal(name: TabPaneName) {
+  const index = typeof name === 'number' ? name : Number(name);
+  const term = terminals.value[index];
+  if (term) {
+    // Best-effort attempt to kill backend session
+    void killTerminal(term.sessionId).catch((err) => {
+      console.error('Failed to kill terminal session:', err);
+    });
+
+    term.terminal.dispose();
     terminals.value.splice(index, 1);
 
     if (terminals.value.length === 0) {
       createNewTerminal();
-    } else if (activeTerminalIndex.value >= terminals.value.length) {
-      activeTerminalIndex.value = terminals.value.length - 1;
+    } else {
+      const activeIndex = Number(activeTerminalIndex.value);
+      if (activeIndex >= terminals.value.length) {
+        activeTerminalIndex.value = terminals.value.length - 1;
+      }
     }
   }
 }
 
 // Switch terminal
-function switchTerminal(index: number) {
-  activeTerminalIndex.value = index;
+function switchTerminal(pane: TabsPaneContext) {
+  const index = typeof pane.paneName === 'number' ? pane.paneName : Number(pane.paneName);
+  if (!Number.isNaN(index)) {
+    activeTerminalIndex.value = index;
+  }
 }
 
 // Refresh terminal
 function refreshTerminal() {
-  const terminal = terminals.value[activeTerminalIndex.value]?.terminal;
+  const activeIndex = Number(activeTerminalIndex.value);
+  const terminal = terminals.value[activeIndex]?.terminal;
   if (terminal) {
     terminal.clear();
     terminal.writeln('\x1b[1;32m终端已刷新\x1b[0m');
@@ -272,7 +348,7 @@ function refreshTerminal() {
     <div class="border-t border-border bg-surface px-4 py-1 text-xs text-text-secondary">
       <div class="flex items-center justify-between">
         <div>
-          <span>终端: {{ terminals[activeTerminalIndex]?.name || '' }}</span>
+          <span>终端: {{ terminals[Number(activeTerminalIndex)]?.name || '' }}</span>
           <span class="mx-2">|</span>
           <span>Shell: {{ appStore.settings.terminalShell }}</span>
         </div>
