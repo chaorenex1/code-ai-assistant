@@ -95,6 +95,6 @@ jobs:
           # Release 名称，可根据需要调整
           releaseName: Code AI Assistant ${{ github.ref_name }}
           # 使用 GitHub 的 Release Notes API 自动生成变更日志
-          generateReleaseNotes: true
+          releaseDraft: true
           # Mac 下按架构分别构建，其它平台留空
           args: ${{ matrix.args }}
