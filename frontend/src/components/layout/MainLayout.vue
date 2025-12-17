@@ -7,19 +7,21 @@ import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/workspaceStore';
 import { useFileStore } from '@/stores/filesStore';
 import { addRecentDirectory, getRecentDirectories, type RecentDirectory } from '@/services/tauri/commands';
-import ChatPanel from '@/components/chat/ChatPanel.vue';
-import CodeEditor from '@/components/editor/CodeEditor.vue';
-import FileExplorer from '@/components/file-explorer/FileExplorer.vue';
-import OutputPanel from '@/components/output/OutputPanel.vue';
-import TerminalPanel from '@/components/terminal/TerminalPanel.vue';
+import MainSidebar from '@/components/layout/MainSidebar.vue';
+import EditorArea from '@/components/layout/EditorArea.vue';
+import BottomTabs from '@/components/layout/BottomTabs.vue';
 
 const appStore = useAppStore();
 const fileStore = useFileStore();
 const router = useRouter();
 
-// Panel visibility
+// Panel visibility & layout
 const showFileExplorer = ref(true);
 const showBottomPanel = ref(true);
+const sidebarWidth = ref(256);
+const isResizingSidebar = ref(false);
+// 固定底部面板高度（像素），避免位置随窗口变化上下浮动
+const bottomPanelHeight = 300;
 
 // Bottom panel tabs
 const bottomTabs = [
@@ -41,6 +43,38 @@ function toggleFileExplorer() {
 function toggleBottomPanel() {
   showBottomPanel.value = !showBottomPanel.value;
 }
+
+// Sidebar resize handlers
+// function onSidebarResizeStart(event: MouseEvent) {
+//   isResizingSidebar.value = true;
+//   sidebarStartX = event.clientX;
+//   sidebarStartWidth = sidebarWidth.value;
+
+//   document.addEventListener('mousemove', onSidebarResizing);
+//   document.addEventListener('mouseup', onSidebarResizeEnd);
+// }
+
+// function onSidebarResizing(event: MouseEvent) {
+//   if (!isResizingSidebar.value) return;
+
+//   const delta = event.clientX - sidebarStartX;
+//   const minWidth = 180;
+//   const maxWidth = 480;
+//   let nextWidth = sidebarStartWidth + delta;
+
+//   if (nextWidth < minWidth) nextWidth = minWidth;
+//   if (nextWidth > maxWidth) nextWidth = maxWidth;
+
+//   sidebarWidth.value = nextWidth;
+// }
+
+// function onSidebarResizeEnd() {
+//   if (!isResizingSidebar.value) return;
+
+//   isResizingSidebar.value = false;
+//   document.removeEventListener('mousemove', onSidebarResizing);
+//   document.removeEventListener('mouseup', onSidebarResizeEnd);
+// }
 
 // Open settings page
 function openSettings() {
@@ -159,78 +193,36 @@ onMounted(() => {
 
     <!-- Main Content -->
     <ElContainer class="flex-1">
-      <!-- File Explorer Sidebar -->
-      <ElAside
-        v-if="showFileExplorer"
-        class="w-64 border-r border-border bg-surface overflow-auto"
-      >
-        <FileExplorer />
-      </ElAside>
+      <MainSidebar
+        :visible="showFileExplorer"
+        :width="sidebarWidth"
+      />
 
       <!-- Main Content Area -->
-      <ElMain class="flex-1 overflow-hidden">
+      <ElMain class="flex-1 overflow-hidden min-w-0">
         <!-- Editor View -->
-        <div class="h-full flex flex-col">
+        <div
+          class="h-full flex flex-col"
+          :style="{ paddingBottom: bottomPanelHeight + 32 + 'px' }"
+        >
           <!-- Editor Area -->
-          <div class="flex-1 overflow-hidden">
-            <CodeEditor />
-          </div>
+          <EditorArea />
 
-          <!-- Bottom Panel Toggle -->
-          <div class="border-t border-border bg-surface px-4 py-1">
-            <div class="flex items-center justify-between">
-              <el-button-group>
-                <el-button
-                  v-for="tab in bottomTabs"
-                  :key="tab.key"
-                  :type="activeBottomTab === tab.key ? 'primary' : 'default'"
-                  :icon="tab.icon"
-                  @click="activeBottomTab = tab.key"
-                >
-                  {{ tab.label }}
-                </el-button>
-              </el-button-group>
-
-              <el-button
-                :icon="showBottomPanel ? 'ArrowDown' : 'ArrowUp'"
-                text
-                @click="toggleBottomPanel"
-              >
-                {{ showBottomPanel ? '隐藏面板' : '显示面板' }}
-              </el-button>
-            </div>
-          </div>
-
-          <!-- Bottom Panel -->
-          <div
-            v-if="showBottomPanel"
-            class="h-64 border-t border-border overflow-hidden"
-          >
-            <ChatPanel v-if="activeBottomTab === 'chat'" />
-            <OutputPanel v-else-if="activeBottomTab === 'output'" />
-            <TerminalPanel v-else-if="activeBottomTab === 'terminal'" />
-          </div>
+          <BottomTabs
+            :tabs="bottomTabs"
+            :active-tab="activeBottomTab"
+            :visible="showBottomPanel"
+            :height="bottomPanelHeight"
+            :show-file-explorer="showFileExplorer"
+            :sidebar-width="sidebarWidth"
+            @update:activeTab="activeBottomTab = $event"
+            @update:visible="showBottomPanel = $event"
+          />
         </div>
 
       </ElMain>
     </ElContainer>
 
-    <!-- Footer -->
-    <ElFooter class="border-t border-border bg-surface px-4 py-2 text-sm text-text-secondary">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-4">
-          <span>工作区: {{ appStore.currentWorkspace }}</span>
-          <span>|</span>
-          <span>文件: {{ appStore.currentFile || '未选择文件' }}</span>
-        </div>
-
-        <div class="flex items-center space-x-4">
-          <span>AI模型: {{ appStore.currentAiModel }}</span>
-          <span>|</span>
-          <span>状态: {{ appStore.isConnected ? '已连接' : '未连接' }}</span>
-        </div>
-      </div>
-    </ElFooter>
   </ElContainer>
 </template>
 
@@ -242,11 +234,6 @@ onMounted(() => {
 
 :deep(.el-aside) {
   width: 256px;
-}
-
-:deep(.el-footer) {
-  padding: 8px 16px;
-  height: 32px;
 }
 
 :deep(.el-main) {
@@ -295,5 +282,15 @@ onMounted(() => {
   margin-top: 2px;
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+.sidebar-resizer {
+  width: 4px;
+  cursor: col-resize;
+  background-color: transparent;
+}
+
+.editor-root {
+  position: relative;
 }
 </style>

@@ -52,7 +52,7 @@ function togglePause() {
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
+  <div class="h-full flex flex-col output-panel">
     <!-- Toolbar -->
     <div class="border-b border-border bg-surface p-2">
       <div class="flex items-center space-x-2 mb-2">
@@ -127,7 +127,7 @@ function togglePause() {
     </div>
 
     <!-- Logs Area -->
-    <div class="flex-1 overflow-auto p-2 font-mono text-sm">
+    <div class="flex-1 overflow-auto p-2 font-mono text-sm logs-container">
       <div
         v-if="filteredLogs.length === 0"
         class="text-center p-4 text-text-secondary"
@@ -160,5 +160,14 @@ function togglePause() {
 <style scoped>
 :deep(.el-select) {
   width: 100px;
+}
+
+.output-panel {
+  min-width: 0;
+}
+
+.logs-container {
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 </style>

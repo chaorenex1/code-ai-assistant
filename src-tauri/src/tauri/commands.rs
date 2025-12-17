@@ -21,7 +21,10 @@ pub struct FileEntry {
 #[tauri::command]
 pub async fn read_file(path: String) -> Result<String, String> {
     info!("Reading file: {}", path);
-    fs::read_to_string(&path).map_err(|e| e.to_string())
+    // 先按字节读取，再使用 UTF-8 有损解码，避免非 UTF-8 文件导致报错
+    let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+    let content = String::from_utf8_lossy(&bytes).to_string();
+    Ok(content)
 }
 
 /// Write file content
