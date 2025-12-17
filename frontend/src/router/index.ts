@@ -4,6 +4,10 @@ import Dashboard from '../pages/Dashboard/index.vue';
 import Home from '../pages/Home/index.vue';
 import Login from '../pages/Login/index.vue';
 import Settings from '../pages/Settings/index.vue';
+import CliPaths from '../pages/Settings/CliPaths.vue';
+import Environment from '../pages/Settings/Environment.vue';
+import AiModels from '../pages/Settings/AiModels.vue';
+import CodeCli from '../pages/Settings/CodeCli.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -37,9 +41,44 @@ const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: Settings,
+      redirect: '/settings/cli-paths',
       meta: {
         title: '设置',
       },
+      children: [
+        {
+          path: 'cli-paths',
+          name: 'settings-cli-paths',
+          component: CliPaths,
+          meta: {
+            title: 'CLI 工具路径设置',
+          },
+        },
+        {
+          path: 'environment',
+          name: 'settings-environment',
+          component: Environment,
+          meta: {
+            title: '环境变量设置',
+          },
+        },
+        {
+          path: 'ai-models',
+          name: 'settings-ai-models',
+          component: AiModels,
+          meta: {
+            title: 'AI 模型管理',
+          },
+        },
+        {
+          path: 'code-cli',
+          name: 'settings-code-cli',
+          component: CodeCli,
+          meta: {
+            title: 'Code CLI 管理',
+          },
+        },
+      ],
     },
     {
       // Redirect unknown routes to home

@@ -42,6 +42,7 @@ const envVars = ref([
 
 const newEnvVar = ref({ name: '', value: '', isSecret: false });
 const showEnvVarDialog = ref(false);
+const editingEnvVarIndex = ref<number | null>(null);
 
 // AI models
 const aiModels = ref([
@@ -51,6 +52,7 @@ const aiModels = ref([
 
 const newAiModel = ref({ name: '', endpoint: '', apiKey: '' });
 const showAiModelDialog = ref(false);
+const editingAiModelIndex = ref<number | null>(null);
 
 // Code CLIs
 const codeClis = ref([
@@ -60,6 +62,7 @@ const codeClis = ref([
 
 const newCodeCli = ref({ name: '', command: '', args: '' });
 const showCodeCliDialog = ref(false);
+const editingCodeCliIndex = ref<number | null>(null);
 
 // Save settings
 async function saveSettings() {
@@ -144,41 +147,169 @@ async function resetSettings() {
 
 // Environment variable operations
 function addEnvVar() {
-  if (newEnvVar.value.name.trim() && newEnvVar.value.value.trim()) {
+  if (!newEnvVar.value.name.trim()) {
+    ElMessage.warning('请输入变量名');
+    return;
+  }
+  if (!newEnvVar.value.value.trim()) {
+    ElMessage.warning('请输入变量值');
+    return;
+  }
+
+  if (editingEnvVarIndex.value !== null) {
+    // 编辑模式
+    envVars.value[editingEnvVarIndex.value] = { ...newEnvVar.value };
+    ElMessage.success('环境变量已更新');
+    editingEnvVarIndex.value = null;
+  } else {
+    // 新增模式
     envVars.value.push({ ...newEnvVar.value });
-    newEnvVar.value = { name: '', value: '', isSecret: false };
-    showEnvVarDialog.value = false;
+    ElMessage.success('环境变量已添加');
+  }
+  newEnvVar.value = { name: '', value: '', isSecret: false };
+  showEnvVarDialog.value = false;
+}
+
+function editEnvVar(index: number) {
+  const envVar = envVars.value[index];
+  if (envVar) {
+    editingEnvVarIndex.value = index;
+    newEnvVar.value = {
+      name: envVar.name,
+      value: envVar.value,
+      isSecret: envVar.isSecret,
+    };
+    showEnvVarDialog.value = true;
   }
 }
 
 function removeEnvVar(index: number) {
-  envVars.value.splice(index, 1);
+  const envVar = envVars.value[index];
+  if (confirm(`确定要删除环境变量 "${envVar?.name}" 吗？`)) {
+    envVars.value.splice(index, 1);
+    ElMessage.success('环境变量已删除');
+  }
+}
+
+function openEnvVarDialog() {
+  editingEnvVarIndex.value = null;
+  newEnvVar.value = { name: '', value: '', isSecret: false };
+  showEnvVarDialog.value = true;
 }
 
 // AI model operations
 function addAiModel() {
-  if (newAiModel.value.name.trim() && newAiModel.value.endpoint.trim()) {
-    aiModels.value.push({ ...newAiModel.value, apiKey: '********' });
-    newAiModel.value = { name: '', endpoint: '', apiKey: '' };
-    showAiModelDialog.value = false;
+  if (!newAiModel.value.name.trim()) {
+    ElMessage.warning('请输入模型名称');
+    return;
+  }
+  if (!newAiModel.value.endpoint.trim()) {
+    ElMessage.warning('请输入API端点');
+    return;
+  }
+
+  if (editingAiModelIndex.value !== null) {
+    // 编辑模式
+    const currentModel = aiModels.value[editingAiModelIndex.value];
+    if (currentModel) {
+      aiModels.value[editingAiModelIndex.value] = {
+        ...newAiModel.value,
+        // 如果没有输入新密钥，保留原密钥
+        apiKey: newAiModel.value.apiKey || currentModel.apiKey,
+      };
+      ElMessage.success('模型已更新');
+    }
+    editingAiModelIndex.value = null;
+  } else {
+    // 新增模式
+    if (!newAiModel.value.apiKey.trim()) {
+      ElMessage.warning('请输入API密钥');
+      return;
+    }
+    aiModels.value.push({ ...newAiModel.value });
+    ElMessage.success('模型已添加');
+  }
+  newAiModel.value = { name: '', endpoint: '', apiKey: '' };
+  showAiModelDialog.value = false;
+}
+
+function editAiModel(index: number) {
+  const model = aiModels.value[index];
+  if (model) {
+    editingAiModelIndex.value = index;
+    newAiModel.value = {
+      name: model.name,
+      endpoint: model.endpoint,
+      apiKey: '', // 编辑时不显示原密钥
+    };
+    showAiModelDialog.value = true;
   }
 }
 
 function removeAiModel(index: number) {
-  aiModels.value.splice(index, 1);
+  const model = aiModels.value[index];
+  if (confirm(`确定要删除模型 "${model?.name}" 吗？`)) {
+    aiModels.value.splice(index, 1);
+    ElMessage.success('模型已删除');
+  }
+}
+
+function openAiModelDialog() {
+  editingAiModelIndex.value = null;
+  newAiModel.value = { name: '', endpoint: '', apiKey: '' };
+  showAiModelDialog.value = true;
 }
 
 // Code CLI operations
 function addCodeCli() {
-  if (newCodeCli.value.name.trim() && newCodeCli.value.command.trim()) {
+  if (!newCodeCli.value.name.trim()) {
+    ElMessage.warning('请输入CLI名称');
+    return;
+  }
+  if (!newCodeCli.value.command.trim()) {
+    ElMessage.warning('请输入命令路径');
+    return;
+  }
+
+  if (editingCodeCliIndex.value !== null) {
+    // 编辑模式
+    codeClis.value[editingCodeCliIndex.value] = { ...newCodeCli.value };
+    ElMessage.success('Code CLI已更新');
+    editingCodeCliIndex.value = null;
+  } else {
+    // 新增模式
     codeClis.value.push({ ...newCodeCli.value });
-    newCodeCli.value = { name: '', command: '', args: '' };
-    showCodeCliDialog.value = false;
+    ElMessage.success('Code CLI已添加');
+  }
+  newCodeCli.value = { name: '', command: '', args: '' };
+  showCodeCliDialog.value = false;
+}
+
+function editCodeCli(index: number) {
+  const codeCli = codeClis.value[index];
+  if (codeCli) {
+    editingCodeCliIndex.value = index;
+    newCodeCli.value = {
+      name: codeCli.name,
+      command: codeCli.command,
+      args: codeCli.args,
+    };
+    showCodeCliDialog.value = true;
   }
 }
 
 function removeCodeCli(index: number) {
-  codeClis.value.splice(index, 1);
+  const codeCli = codeClis.value[index];
+  if (confirm(`确定要删除 Code CLI "${codeCli?.name}" 吗？`)) {
+    codeClis.value.splice(index, 1);
+    ElMessage.success('Code CLI已删除');
+  }
+}
+
+function openCodeCliDialog() {
+  editingCodeCliIndex.value = null;
+  newCodeCli.value = { name: '', command: '', args: '' };
+  showCodeCliDialog.value = true;
 }
 
 // 选择工作目录
@@ -374,13 +505,14 @@ onMounted(() => {
         <ElButton
           type="primary"
           :icon="Plus"
-          @click="showEnvVarDialog = true"
+          @click="openEnvVarDialog"
         >
           添加环境变量
         </ElButton>
       </div>
 
       <ElTable
+        v-if="envVars.length > 0"
         :data="envVars"
         style="width: 100%"
       >
@@ -407,6 +539,7 @@ onMounted(() => {
               size="small"
               :icon="Edit"
               text
+              @click="editEnvVar($index)"
             />
             <ElButton
               size="small"
@@ -418,6 +551,9 @@ onMounted(() => {
           </template>
         </ElTableColumn>
       </ElTable>
+      <div v-else class="empty-state">
+        <p class="text-gray-500 text-center py-8">暂无环境变量，点击上方按钮添加</p>
+      </div>
     </div>
 
     <!-- AI Models -->
@@ -429,16 +565,18 @@ onMounted(() => {
         <ElButton
           type="primary"
           :icon="Plus"
-          @click="showAiModelDialog = true"
+          @click="openAiModelDialog"
         >
           添加模型
         </ElButton>
       </div>
 
       <ElTable
+        v-if="aiModels.length > 0"
         :data="aiModels"
         style="width: 100%"
       >
+
         <ElTableColumn
           prop="name"
           label="模型名称"
@@ -465,6 +603,7 @@ onMounted(() => {
               size="small"
               :icon="Edit"
               text
+              @click="editAiModel($index)"
             />
             <ElButton
               size="small"
@@ -476,6 +615,9 @@ onMounted(() => {
           </template>
         </ElTableColumn>
       </ElTable>
+      <div v-else class="empty-state">
+        <p class="text-gray-500 text-center py-8">暂无AI模型，点击上方按钮添加</p>
+      </div>
     </div>
 
     <!-- Code CLIs -->
@@ -487,13 +629,14 @@ onMounted(() => {
         <ElButton
           type="primary"
           :icon="Plus"
-          @click="showCodeCliDialog = true"
+          @click="openCodeCliDialog"
         >
           添加 Code CLI
         </ElButton>
       </div>
 
       <ElTable
+        v-if="codeClis.length > 0"
         :data="codeClis"
         style="width: 100%"
       >
@@ -519,6 +662,7 @@ onMounted(() => {
               size="small"
               :icon="Edit"
               text
+              @click="editCodeCli($index)"
             />
             <ElButton
               size="small"
@@ -530,6 +674,9 @@ onMounted(() => {
           </template>
         </ElTableColumn>
       </ElTable>
+      <div v-else class="empty-state">
+        <p class="text-gray-500 text-center py-8">暂无Code CLI，点击上方按钮添加</p>
+      </div>
     </div>
 
     <!-- Action Buttons -->
@@ -548,7 +695,7 @@ onMounted(() => {
     <!-- Dialogs -->
     <ElDialog
       v-model="showEnvVarDialog"
-      title="添加环境变量"
+      :title="editingEnvVarIndex !== null ? '编辑环境变量' : '添加环境变量'"
       width="500px"
     >
       <ElForm
@@ -578,7 +725,7 @@ onMounted(() => {
 
     <ElDialog
       v-model="showAiModelDialog"
-      title="添加 AI 模型"
+      :title="editingAiModelIndex !== null ? '编辑 AI 模型' : '添加 AI 模型'"
       width="500px"
     >
       <ElForm
@@ -596,6 +743,7 @@ onMounted(() => {
             v-model="newAiModel.apiKey"
             type="password"
             show-password
+            :placeholder="editingAiModelIndex !== null ? '留空则保持原密钥不变' : ''"
           />
         </ElFormItem>
       </ElForm>
@@ -612,7 +760,7 @@ onMounted(() => {
 
     <ElDialog
       v-model="showCodeCliDialog"
-      title="添加 Code CLI"
+      :title="editingCodeCliIndex !== null ? '编辑 Code CLI' : '添加 Code CLI'"
       width="500px"
     >
       <ElForm
@@ -653,6 +801,13 @@ onMounted(() => {
 
 :deep(.el-table th) {
   background-color: var(--color-surface);
+}
+
+/* 空状态样式 */
+.empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.02);
 }
 
 /* 自定义滚动条样式 */

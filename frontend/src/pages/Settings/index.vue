@@ -1,202 +1,148 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
-  ElButton,
-  ElCard,
-  ElForm,
-  ElFormItem,
-  ElInput,
-  ElSwitch,
-  ElSelect,
-  ElOption,
-  ElMessage,
-  ElPageHeader,
-} from 'element-plus';
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+  Tools,
+  Key,
+  DataAnalysis,
+  Monitor
+} from '@element-plus/icons-vue';
 
-import { useAppStore } from '@/stores/workspaceStore';
-
+const route = useRoute();
 const router = useRouter();
-const appStore = useAppStore();
 
-const settings = ref({
-  theme: 'light',
-  language: 'zh-CN',
-  fontSize: 14,
-  autoSave: true,
-  aiModel: 'gpt-3.5-turbo',
-  apiKey: '',
-});
-
-const themes = [
-  { label: '浅色', value: 'light' },
-  { label: '深色', value: 'dark' },
-  { label: '自动', value: 'auto' },
-];
-
-const languages = [
-  { label: '简体中文', value: 'zh-CN' },
-  { label: 'English', value: 'en' },
-];
-
-const aiModels = [
-  { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' },
-  { label: 'GPT-4', value: 'gpt-4' },
-  { label: 'GPT-4 Turbo', value: 'gpt-4-turbo' },
-];
-
-function handleSave() {
-  // TODO: Implement save settings logic
-  ElMessage.success('设置已保存');
+interface MenuItem {
+  path: string;
+  name: string;
+  icon: any;
 }
 
-function handleReset() {
-  // Reset to default settings
-  settings.value = {
-    theme: 'light',
-    language: 'zh-CN',
-    fontSize: 14,
-    autoSave: true,
-    aiModel: 'gpt-3.5-turbo',
-    apiKey: '',
-  };
-  ElMessage.info('设置已重置为默认值');
-}
+const menuItems = ref<MenuItem[]>([
+  { path: '/settings/cli-paths', name: 'CLI 工具路径', icon: Tools },
+  { path: '/settings/environment', name: '环境变量', icon: Key },
+  { path: '/settings/ai-models', name: 'AI 模型', icon: DataAnalysis },
+  { path: '/settings/code-cli', name: 'Code CLI', icon: Monitor },
+]);
 
-function goBack() {
-  router.back();
+const activeMenu = computed(() => route.path);
+
+function navigateTo(path: string) {
+  router.push(path);
 }
 </script>
 
 <template>
-  <div class="settings-page min-h-screen bg-gray-50 dark:bg-gray-900">
-    <div class="container mx-auto px-4 py-8">
-      <ElPageHeader
-        class="mb-6"
-        @back="goBack"
-      >
-        <template #content>
-          <h1 class="text-2xl font-bold">
-            设置
-          </h1>
-        </template>
-      </ElPageHeader>
-
-      <div class="max-w-3xl mx-auto space-y-6">
-        <!-- 外观设置 -->
-        <ElCard>
-          <template #header>
-            <h2 class="text-xl font-semibold">
-              外观
-            </h2>
-          </template>
-          <ElForm label-width="120px">
-            <ElFormItem label="主题">
-              <ElSelect
-                v-model="settings.theme"
-                class="w-full"
-              >
-                <ElOption
-                  v-for="theme in themes"
-                  :key="theme.value"
-                  :label="theme.label"
-                  :value="theme.value"
-                />
-              </ElSelect>
-            </ElFormItem>
-            <ElFormItem label="语言">
-              <ElSelect
-                v-model="settings.language"
-                class="w-full"
-              >
-                <ElOption
-                  v-for="lang in languages"
-                  :key="lang.value"
-                  :label="lang.label"
-                  :value="lang.value"
-                />
-              </ElSelect>
-            </ElFormItem>
-            <ElFormItem label="字体大小">
-              <ElInput
-                v-model.number="settings.fontSize"
-                type="number"
-                :min="10"
-                :max="24"
-              >
-                <template #append>
-                  px
-                </template>
-              </ElInput>
-            </ElFormItem>
-          </ElForm>
-        </ElCard>
-
-        <!-- 编辑器设置 -->
-        <ElCard>
-          <template #header>
-            <h2 class="text-xl font-semibold">
-              编辑器
-            </h2>
-          </template>
-          <ElForm label-width="120px">
-            <ElFormItem label="自动保存">
-              <ElSwitch v-model="settings.autoSave" />
-            </ElFormItem>
-          </ElForm>
-        </ElCard>
-
-        <!-- AI 设置 -->
-        <ElCard>
-          <template #header>
-            <h2 class="text-xl font-semibold">
-              AI 配置
-            </h2>
-          </template>
-          <ElForm label-width="120px">
-            <ElFormItem label="AI 模型">
-              <ElSelect
-                v-model="settings.aiModel"
-                class="w-full"
-              >
-                <ElOption
-                  v-for="model in aiModels"
-                  :key="model.value"
-                  :label="model.label"
-                  :value="model.value"
-                />
-              </ElSelect>
-            </ElFormItem>
-            <ElFormItem label="API Key">
-              <ElInput
-                v-model="settings.apiKey"
-                type="password"
-                show-password
-                placeholder="输入您的 API Key"
-              />
-            </ElFormItem>
-          </ElForm>
-        </ElCard>
-
-        <!-- 操作按钮 -->
-        <div class="flex justify-end gap-4">
-          <ElButton @click="handleReset">
-            重置为默认
-          </ElButton>
-          <ElButton
-            type="primary"
-            @click="handleSave"
-          >
-            保存设置
-          </ElButton>
+  <div class="settings-page">
+    <div class="settings-sidebar">
+      <div class="sidebar-header">
+        <h2 class="text-xl font-bold">设置</h2>
+      </div>
+      <div class="sidebar-menu">
+        <div
+          v-for="item in menuItems"
+          :key="item.path"
+          :class="['menu-item', { active: activeMenu === item.path }]"
+          @click="navigateTo(item.path)"
+        >
+          <component :is="item.icon" class="menu-icon" />
+          <span>{{ item.name }}</span>
         </div>
       </div>
+    </div>
+    <div class="settings-content">
+      <router-view />
     </div>
   </div>
 </template>
 
 <style scoped>
 .settings-page {
-  min-height: 100vh;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-background);
+}
+
+.settings-sidebar {
+  width: 240px;
+  background-color: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 24px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-menu {
+  flex: 1;
+  padding: 12px 8px;
+  overflow-y: auto;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--color-text-secondary);
+}
+
+.menu-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+  color: var(--color-text);
+}
+
+.menu-item.active {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.menu-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 12px;
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  background-color: var(--color-background);
+}
+
+/* 自定义滚动条 */
+.settings-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.8);
+}
+
+.sidebar-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.3);
+  border-radius: 3px;
 }
 </style>
