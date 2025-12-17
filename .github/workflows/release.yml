@@ -3,7 +3,7 @@ name: Tauri Multi-Arch Release
 on:
   push:
     tags:
-      - "v*" # 以 v 开头的版本标签触发，例如 v0.1.0
+      - "v*"
 
 jobs:
   publish-tauri:
@@ -11,17 +11,21 @@ jobs:
     permissions:
       contents: write
     strategy:
-      fail-fast: false
+      fail-fast:  false
       matrix:
         include:
-          - platform: macos-latest      # Apple Silicon
+          - platform: macos-14
             args: "--target aarch64-apple-darwin"
-          - platform: macos-latest      # Intel Mac
+            rust_target: "aarch64-apple-darwin"
+          - platform: macos-13
             args: "--target x86_64-apple-darwin"
+            rust_target: "x86_64-apple-darwin"
           - platform: ubuntu-22.04
             args: ""
+            rust_target: ""
           - platform: windows-latest
             args: ""
+            rust_target:  ""
 
     runs-on: ${{ matrix.platform }}
 
@@ -32,28 +36,43 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: pnpm
+          node-version:  20
 
-      - name: Enable corepack and install pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.0.0
+
+      - name: Get pnpm store directory
+        shell: bash
         run: |
-          corepack enable
-          corepack prepare pnpm@9.0.0 --activate
-          pnpm --version
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-      - name: Install root dependencies (Tauri CLI)
+      - name: Setup pnpm cache
+        uses:  actions/cache@v4
+        with:
+          path:  ${{ env.STORE_PATH}}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys:  |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install root dependencies
         run: pnpm install
 
       - name: Install frontend dependencies
         run: pnpm --dir frontend install
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          # 只在 macOS 上额外安装双架构目标，其他平台留空即可
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+        uses:  dtolnay/rust-toolchain@stable
+        with: 
+          targets: ${{ matrix.rust_target }}
 
-      - name: Install Linux dependencies (Ubuntu only)
+      - name:  Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
