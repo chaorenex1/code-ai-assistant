@@ -25,6 +25,7 @@ thiserror = "2.0.17"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "local-time"] }
 tracing-appender = "0.2"
+time = { version = "0.3", features = ["macros", "formatting"] }
 config = "0.15.19"
 clap = { version = "4.0", features = ["derive"] }
 sea-orm = { version = "0.12", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }

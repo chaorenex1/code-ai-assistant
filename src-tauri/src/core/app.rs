@@ -37,14 +37,10 @@ impl AppState {
 
 /// Initialize the application core
 pub fn init(app: &mut App) -> AppResult<()> {
-    info!("Initializing application core...");
-
     // Load application configuration
     let config = crate::config::loader::load_config()?;
-    info!("Configuration loaded successfully");
     // initialize data directory
     crate::utils::fs::init_dir(&config.app.data_dir)?;
-    info!("Data directory initialized at {}", &config.app.data_dir);
     // Store configuration in Tauri state
     app.manage(config.clone());
 
@@ -58,7 +54,6 @@ pub fn init(app: &mut App) -> AppResult<()> {
     // Store application state in Tauri state
     app.manage(app_state);
 
-    info!("Application core initialized successfully");
     Ok(())
 }
 

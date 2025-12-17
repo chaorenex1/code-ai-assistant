@@ -2,8 +2,6 @@
 //!
 //! This module handles loading and managing application configuration.
 
-use tracing::{debug, info};
-
 use crate::utils::error::{AppError, AppResult};
 use crate::config::schema::AppConfig;
 
@@ -24,7 +22,6 @@ pub fn get_default_data_dir() -> AppResult<String> {
 use config::{Config, Environment, File as ConfigFile};
 
 pub fn load_settings() -> AppResult<AppConfig> {
-    info!("Loading settings from multi-sources...");
     // Step 1: 构建默认 Map（从 AppConfig::default() 序列化键值对）
     let defaults =  serde_json::to_string(&AppConfig::default())?;
     // Step 2: 构建 Config 对象，添加多个配置源
@@ -36,17 +33,13 @@ pub fn load_settings() -> AppResult<AppConfig> {
     let config: AppConfig = cfg.try_deserialize()
         .map_err(|e| AppError::ConfigError(format!("Failed to deserialize config: {}", e)))?;
     // Step 3: 返回最终配置
-    debug!("Final merged configuration: {:?}", config);
-    info!("Settings loaded successfully");
     Ok(config)
 }
 
 
 /// Load application configuration
 pub fn load_config() -> AppResult<AppConfig> {
-    info!("Loading application configuration...");
     let config = load_settings()?;
-    info!("Configuration loaded successfully");
     Ok(config)
 }
 
@@ -56,7 +49,6 @@ fn load_config_from_file() -> AppResult<AppConfig> {
         .ok_or_else(|| AppError::ConfigError("Failed to get config directory".to_string()))?
         .join("code-ai-assistant");
 
-    debug!("Config directory: {:?}", config_dir);
     let config_file = config_dir.join("config.toml");
 
     if !config_file.exists() {
@@ -74,8 +66,6 @@ fn load_config_from_file() -> AppResult<AppConfig> {
 
 /// Save configuration to file
 pub fn save_config(config: &AppConfig) -> AppResult<()> {
-    info!("Saving application configuration...");
-
     let config_dir = dirs::config_dir()
         .ok_or_else(|| AppError::ConfigError("Failed to get config directory".to_string()))?
         .join("code-ai-assistant");
@@ -91,6 +81,6 @@ pub fn save_config(config: &AppConfig) -> AppResult<()> {
     std::fs::write(&config_file, config_str)
         .map_err(|e| AppError::ConfigError(format!("Failed to write config file: {}", e)))?;
 
-    info!("Configuration saved successfully to: {:?}", config_file);
+    tracing::info!("Configuration saved successfully to: {:?}", config_file);
     Ok(())
 }

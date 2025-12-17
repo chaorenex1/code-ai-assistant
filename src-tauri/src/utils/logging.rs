@@ -3,6 +3,8 @@
 //! This module handles application logging configuration.
 
 use tauri::{App, Manager};
+use time::{format_description::{BorrowedFormatItem, parse}, macros::format_description, UtcOffset};
+use tracing_subscriber::fmt::time::UtcTime;
 
 use anyhow::{Context, Result};
 use tracing::Level;
@@ -13,46 +15,80 @@ use tracing_subscriber::{
     prelude::*,
     registry::Registry,
     util::SubscriberInitExt,
-    EnvFilter,
+    EnvFilter
 };
 use tracing_appender::{non_blocking, rolling::{RollingFileAppender, Rotation}};
 
+
+fn build_timer() -> UtcTime<&'static [BorrowedFormatItem<'static>]> {
+    // 等价：2025-12-18 12:34:56.123
+    const FORMAT: &[BorrowedFormatItem<'static>] =
+        format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
+
+    UtcTime::new(FORMAT)
+}
+
+
 pub fn init_tracing(app: &mut App) -> Result<()> {
-    let config = app.state::<crate::config::AppConfig>();
-    let log_config = &config.logging;
+    let cfg = &app.state::<crate::config::AppConfig>().logging;
+    let timer = build_timer();
 
-    // let filter_layer = EnvFilter::try_new(log_config.log_level.as_str())?
-    //     .add_directive("h2=warn".parse()?)
-    //     .add_directive("hyper=info".parse()?);
+    // 日志级别
+    let env_filter = EnvFilter::new(&cfg.log_level);
 
-    // // 2. 控制台层
-    // let console_layer = fmt::layer()
-    //     .with_ansi(true)
-    //     .with_timer(fmt::time::LocalTime::rfc_3339());
-    // // 3. 文件层 + 旋转
-    // let path_str = log_config.log_file_path.as_str();
-    // let file_name = log_config.log_file_name.as_str();
-    // let log_dir = Path::new(&path_str);
-    // crate::utils::fs::init_dir(&path_str)?;
-    // let file_appender = RollingFileAppender::builder()  
-    //     .rotation(Rotation::DAILY)  
-    //     .filename_prefix(file_name)
-    //     .filename_suffix("log")
-    //     .max_log_files(log_config.log_file_rotation.log_file_max_backups.try_into().unwrap_or(5))
-    //     .build(log_dir)
-    //     .context("Failed to build file appender")?;
-    // let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    // let file_layer = fmt::layer()
-    //     .with_writer(non_blocking)
-    //     .with_ansi(false)
-    //     .with_timer(fmt::time::LocalTime::rfc_3339());
-    // 4. 初始化（链式 with 安全）
-    // Registry::default().with(filter_layer).with(file_layer).with(console_layer).init();
-    tracing::info!(
-        level = log_config.log_level,
-        console = log_config.console,
-        "Tracing initialized successfully"
-    );
+    // === 文件输出 ===
+    let max_size = (&cfg.log_file_rotation.log_file_max_size_mb * 1024 * 1024) as u64;
+    let file_appender = RollingFileAppender::builder()
+        .rotation(Rotation::DAILY)
+        .max_log_files(cfg.log_file_rotation.log_file_max_backups as usize)
+        .filename_prefix(&cfg.log_file_name)
+        .build(&cfg.log_file_path.as_str())
+        .context("Failed to create log file appender")?;
+
+    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+
+    let file_layer = fmt::layer()
+        .with_timer(timer.clone())
+        .with_writer(file_writer)
+        .with_level(true)
+        .with_target(true)
+        .with_file(true)
+        .with_line_number(true)
+        .with_ansi(false);
+
+    // === 控制台输出 ===
+    let stdout_layer = fmt::layer()
+        .with_timer(timer)
+        .with_writer(std::io::stdout)
+        .with_level(true)
+        .with_target(true)
+        .with_file(true)
+        .with_line_number(true)
+        .with_filter(if cfg.console { 
+            env_filter.clone() 
+        } else { 
+            EnvFilter::new("off") 
+        });
+
+    // Use try_init to avoid panic if already initialized
+    match tracing_subscriber::registry()
+        .with(env_filter)
+        .with(stdout_layer)
+        .with(file_layer)
+        .try_init() {
+            Ok(_) => {
+                // 防止日志丢失 - guard 必须在整个应用生命周期中保持
+                std::mem::forget(guard);
+                tracing::info!("Logging initialized successfully, log path: {}", cfg.log_file_path);
+            },
+            Err(e) => {
+                // Subscriber already initialized - continue anyway but warn
+                std::mem::forget(guard);
+                eprintln!("Warning: Global tracing subscriber was already initialized: {:?}", e);
+                eprintln!("Continuing with existing subscriber. Logs may not be written to file.");
+            }
+        }
+    
     Ok(())
 }
 

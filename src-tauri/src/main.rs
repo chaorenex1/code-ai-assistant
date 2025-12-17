@@ -23,13 +23,10 @@ mod utils;
 fn main() {
     tauri::Builder::default()
         // Register Tauri plugins
-        .plugin(tauri_plugin_log::Builder::default().build())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            info!("Application already running with args: {:?}, cwd: {:?}", argv, cwd);
-
-            // Focus the existing window
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // Focus the existing window (don't log here as tracing not yet initialized)
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
             }
@@ -73,13 +70,12 @@ fn main() {
 
         // Setup application state
         .setup(|app| {
-            info!("Starting Code AI Assistant...");
-            
-            // Initialize application core
+            // Initialize application core first (loads config)
             core::app::init(app)?;
-            // Initialize logging
+            
+            // Initialize logging (requires config to be loaded)
             utils::logging::init_tracing(app)?;
-
+            
             // Initialize database connection
             database::connection::init(app)?;
 
