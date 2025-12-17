@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { ElNotification } from 'element-plus';
 import { ref, onMounted } from 'vue';
@@ -57,7 +56,7 @@ async function setupEventListeners() {
   });
 
   // Listen for workspace changed events
-  const unlistenWorkspaceChanged = await listen('workspace-changed', (event) => {
+  const unlistenWorkspaceChanged = await listen<{ workspace: string }>('workspace-changed', (event) => {
     console.log('Workspace changed:', event.payload);
     appStore.setCurrentWorkspace(event.payload.workspace);
   });
@@ -74,7 +73,7 @@ async function setupEventListeners() {
   });
 
   // Listen for error events
-  const unlistenError = await listen('error', (event) => {
+  const unlistenError = await listen<{ error: string }>('error', (event) => {
     console.error('Error event:', event.payload);
     ElNotification({
       title: '错误',

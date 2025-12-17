@@ -3,7 +3,11 @@ import type { FileEntry, ChatMessage, Workspace } from './types';
 // File system helpers
 export function getFileExtension(filename: string): string {
   const parts = filename.split('.');
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
+  if (parts.length <= 1) {
+    return '';
+  }
+  const last = parts[parts.length - 1] ?? '';
+  return last.toLowerCase();
 }
 
 export function getFileIcon(file: FileEntry): string {
@@ -247,7 +251,9 @@ export function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    const temp = shuffled[i]!;
+    shuffled[i] = shuffled[j]!;
+    shuffled[j] = temp;
   }
   return shuffled;
 }
@@ -303,11 +309,14 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
   if (!result) {
     return { r: 0, g: 0, b: 0 };
   }
+  const rHex = result[1]!;
+  const gHex = result[2]!;
+  const bHex = result[3]!;
 
   return {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16),
+    r: parseInt(rHex, 16),
+    g: parseInt(gHex, 16),
+    b: parseInt(bHex, 16),
   };
 }
 
@@ -326,7 +335,7 @@ export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
 
   return (...args: Parameters<T>) => {
     if (timeout) {

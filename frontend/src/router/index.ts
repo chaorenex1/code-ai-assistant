@@ -89,7 +89,7 @@ const router = createRouter({
 });
 
 // Navigation guard for route title
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   // Set page title
   if (to.meta.title) {
     document.title = `${to.meta.title} - Code AI Assistant`;

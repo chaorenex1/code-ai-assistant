@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { Menu, Setting, Folder, Message, Document } from '@element-plus/icons-vue';
-import { ElContainer, ElHeader, ElMain, ElAside, ElFooter, ElMessage } from 'element-plus';
+import { ElContainer, ElHeader, ElMain, ElMessage } from 'element-plus';
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { useAppStore } from '@/stores/workspaceStore';
 import { useFileStore } from '@/stores/filesStore';
 import { addRecentDirectory, getRecentDirectories, type RecentDirectory } from '@/services/tauri/commands';
 import MainSidebar from '@/components/layout/MainSidebar.vue';
 import EditorArea from '@/components/layout/EditorArea.vue';
 import BottomTabs from '@/components/layout/BottomTabs.vue';
 
-const appStore = useAppStore();
 const fileStore = useFileStore();
 const router = useRouter();
 
@@ -19,7 +17,6 @@ const router = useRouter();
 const showFileExplorer = ref(true);
 const showBottomPanel = ref(true);
 const sidebarWidth = ref(256);
-const isResizingSidebar = ref(false);
 // 固定底部面板高度（像素），避免位置随窗口变化上下浮动
 const bottomPanelHeight = 300;
 
@@ -38,10 +35,6 @@ const recentDirectories = ref<RecentDirectory[]>([]);
 // Toggle panels
 function toggleFileExplorer() {
   showFileExplorer.value = !showFileExplorer.value;
-}
-
-function toggleBottomPanel() {
-  showBottomPanel.value = !showBottomPanel.value;
 }
 
 // Sidebar resize handlers

@@ -1,6 +1,6 @@
 import { listen, emit, type Event } from '@tauri-apps/api/event';
 
-import type { AppEvent, FileEntry, TerminalOutput, ChatMessage } from '@/utils/types';
+import type { FileEntry, TerminalOutput, ChatMessage } from '@/utils/types';
 
 // Event types
 export type EventType =

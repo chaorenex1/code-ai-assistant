@@ -58,12 +58,15 @@ export const useUserStore = defineStore('user', () => {
       const user: User = {
         id: crypto.randomUUID(),
         email,
-        name: email.split('@')[0],
+        name: email.split('@')[0] ?? email,
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}&background=random`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         lastLoginAt: new Date().toISOString(),
       };
+
+      // Mark password as intentionally unused for now
+      void password;
 
       setUser(user);
       authState.value = 'authenticated';

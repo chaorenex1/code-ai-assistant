@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 
-import type { Theme, ColorScheme, ThemeColors } from '@/utils/types';
+import type { Theme, ColorScheme, ThemeColors, ThemeColorSet } from '@/utils/types';
 
 export const useThemeStore = defineStore('theme', () => {
   // State
   const currentTheme = ref<Theme>('light');
   const colorScheme = ref<ColorScheme>('system');
-  const themeColors = ref<ThemeColors>({
+  const themeColors = ref<ThemeColorSet>({
     light: {
       primary: '#2563eb',
       secondary: '#7c3aed',
@@ -31,7 +31,7 @@ export const useThemeStore = defineStore('theme', () => {
       textSecondary: '#94a3b8',
     },
   });
-  const customThemes = ref<Record<string, ThemeColors>>({});
+  const customThemes = ref<Record<string, ThemeColorSet>>({});
 
   // Computed
   const isDarkMode = computed(() => {
@@ -41,7 +41,7 @@ export const useThemeStore = defineStore('theme', () => {
     return colorScheme.value === 'dark';
   });
 
-  const currentColors = computed(() => {
+  const currentColors = computed<ThemeColors>(() => {
     return themeColors.value[currentTheme.value];
   });
 
@@ -71,7 +71,7 @@ export const useThemeStore = defineStore('theme', () => {
     setTheme(currentTheme.value === 'light' ? 'dark' : 'light');
   };
 
-  const updateThemeColors = (theme: Theme, colors: Partial<ThemeColors[Theme]>) => {
+  const updateThemeColors = (theme: Theme, colors: Partial<ThemeColors>) => {
     themeColors.value[theme] = { ...themeColors.value[theme], ...colors };
     if (theme === currentTheme.value) {
       applyTheme();
@@ -79,7 +79,7 @@ export const useThemeStore = defineStore('theme', () => {
     saveToStorage();
   };
 
-  const createCustomTheme = (name: string, colors: ThemeColors[Theme]) => {
+  const createCustomTheme = (name: string, colors: ThemeColors) => {
     customThemes.value[name] = {
       light: { ...themeColors.value.light, ...colors },
       dark: { ...themeColors.value.dark, ...colors },
@@ -98,11 +98,11 @@ export const useThemeStore = defineStore('theme', () => {
 
     document.documentElement.classList.toggle('dark', themeToApply === 'dark');
 
-    const colors = themeColors.value[themeToApply];
+    const colors: ThemeColors = themeColors.value[themeToApply];
     setCSSVariables(colors);
   };
 
-  const setCSSVariables = (colors: ThemeColors[Theme]) => {
+  const setCSSVariables = (colors: ThemeColors) => {
     const root = document.documentElement;
     Object.entries(colors).forEach(([key, value]) => {
       root.style.setProperty(`--color-${key}`, value);
