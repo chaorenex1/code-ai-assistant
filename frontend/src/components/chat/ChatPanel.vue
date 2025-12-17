@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, Delete, Setting, Search, Folder, Document } from '@element-plus/icons-vue';
 import { ElInput, ElButton, ElSelect, ElOption, ElTooltip, ElTag, ElDialog, ElIcon } from 'element-plus';
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { listen } from '@tauri-apps/api/event';
 
 import { useFileStore } from '@/stores/filesStore';
@@ -16,6 +16,7 @@ const message = ref('');
 const isLoading = ref(false);
 const associatedFiles = ref<string[]>([]);
 const messages = ref<ChatMessageType[]>([]);
+const messagesContainer = ref<HTMLElement | null>(null);
 const currentRequestId = ref<string | null>(null);
 let aiUnlisten: (() => void) | null = null;
 
@@ -78,6 +79,13 @@ async function setupAiResponseListener() {
         if (!last || last.id !== data.request_id || last.role !== 'assistant') return;
 
         last.content += data.delta;
+
+        // 流式追加内容后，自动滚动到底部
+        void nextTick(() => {
+          if (messagesContainer.value) {
+            messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+          }
+        });
 
         if (data.done) {
           isLoading.value = false;
@@ -245,7 +253,10 @@ function confirmAssociate() {
     </div>
 
     <!-- Chat Messages Area -->
-    <div class="flex-1 overflow-auto p-4 space-y-3 bg-surface/50">
+    <div
+	  ref="messagesContainer"
+	  class="flex-1 overflow-auto p-4 space-y-3 bg-surface/50"
+	>
       <div
         v-if="messages.length === 0"
         class="text-center text-text-secondary"

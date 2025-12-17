@@ -83,12 +83,12 @@ export async function executeCommand(
 }
 
 export async function executeTerminalCommand(
-  sessionId: string | undefined,
+  sessionId: any,
   command: string,
   args?: string[]
 ): Promise<string> {
   return invoke('execute_terminal_command', {
-    session_id: sessionId,
+    sessionId,
     command,
     args: args ?? [],
   });

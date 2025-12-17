@@ -174,12 +174,7 @@ function setupCommandHandling(terminal: Terminal, sessionId: string) {
 }
 
 // Handle command execution
-async function handleCommand(command: string, terminal: Terminal, sessionId?: string) {
-  if (!sessionId) {
-    terminal.writeln('\x1b[1;31m错误: 无效的终端会话\x1b[0m');
-    terminal.write('$ ');
-    return;
-  }
+async function handleCommand(command: string, terminal: Terminal, sessionId: string) {
   const trimmedCommand = command.trim();
 
   if (!trimmedCommand) {
@@ -215,7 +210,7 @@ async function handleCommand(command: string, terminal: Terminal, sessionId?: st
   // Execute command via backend terminal session
   try {
     const [cmd, ...args] = trimmedCommand.split(' ');
-    const result = await executeTerminalCommand(sessionId!, cmd, args);
+	const result = await executeTerminalCommand(sessionId as string, cmd, args);
 
     if (result) {
       terminal.writeln(result);

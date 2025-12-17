@@ -43,7 +43,9 @@
       "Bash(pnpm lint)",
       "Bash(pnpm lint:fix)",
       "Bash(powershell:*)",
-      "Bash(VITE_PORT=5175 pnpm dev)"
+      "Bash(VITE_PORT=5175 pnpm dev)",
+      "Bash(mkdir:*)",
+      "Bash(git describe:*)"
     ]
   }
 }

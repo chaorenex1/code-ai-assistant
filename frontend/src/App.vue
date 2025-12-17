@@ -50,12 +50,6 @@ async function setupEventListeners() {
     // Handle terminal output event
   });
 
-  // Listen for AI response events
-  const unlistenAiResponse = await listen('ai-response', (event) => {
-    console.log('AI response:', event.payload);
-    // Handle AI response event
-  });
-
   // Listen for log message events
   const unlistenLogMessage = await listen('log-message', (event) => {
     console.log('Log message:', event.payload);
@@ -94,7 +88,6 @@ async function setupEventListeners() {
   appStore.setUnlistenFunctions([
     unlistenFileChanged,
     unlistenTerminalOutput,
-    unlistenAiResponse,
     unlistenLogMessage,
     unlistenWorkspaceChanged,
     unlistenSettingsUpdated,

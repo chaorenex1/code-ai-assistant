@@ -424,18 +424,18 @@ pub async fn execute_command(
 #[tauri::command]
 pub async fn execute_terminal_command(
     state: State<'_, AppState>,
-    session_id: String,
+    sessionId: String,
     command: String,
     args: Vec<String>,
 ) -> Result<String, String> {
     info!(
         "Executing terminal command in session {}: {} {:?}",
-        session_id, command, args
+        sessionId, command, args
     );
 
     state
         .terminal
-        .execute_command(&session_id, &command, &args)
+        .execute_command(&sessionId, &command, &args)
         .map_err(|e| e.to_string())
 }
 

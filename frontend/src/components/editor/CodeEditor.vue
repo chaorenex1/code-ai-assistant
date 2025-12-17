@@ -5,11 +5,13 @@ import * as monaco from 'monaco-editor';
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue';
 
 import { useFileStore } from '@/stores/filesStore';
+import { invoke } from '@tauri-apps/api/core';
 
 const fileStore = useFileStore();
 const editorContainer = ref<HTMLElement>();
 const editor = ref<monaco.editor.IStandaloneCodeEditor>();
 const isLoading = ref(false);
+let pollTimer: number | null = null;
 
 // 处理路径，兼容 Windows 和 POSIX
 function getFileNameFromPath(path: string): string {
@@ -83,12 +85,44 @@ onMounted(() => {
     },
     { immediate: true }
   );
+
+  // 每 10 秒轮询当前活动文件是否在磁盘上发生变化
+  pollTimer = window.setInterval(async () => {
+    const active = fileStore.activeFile;
+    if (!active || active.modified) {
+      return;
+    }
+
+    try {
+      const latest = (await invoke('read_file', { path: active.path })) as string;
+      if (typeof latest === 'string' && latest !== active.content) {
+        // 更新编辑器内容与 store，但不标记为已修改
+        if (editor.value) {
+          const model = editor.value.getModel();
+          if (model) {
+            model.setValue(latest);
+          } else {
+            editor.value.setValue(latest);
+          }
+        }
+        fileStore.refreshActiveFileContentFromDisk(latest);
+      }
+    } catch (error) {
+      // 轮询失败时静默忽略，避免打扰用户
+      // 可以在需要时添加调试日志
+    }
+  }, 10_000);
 });
 
 // Cleanup on unmount
 onUnmounted(() => {
   if (editor.value) {
     editor.value.dispose();
+  }
+
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
   }
 });
 

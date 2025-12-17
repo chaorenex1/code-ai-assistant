@@ -214,8 +214,14 @@ export const useFileStore = defineStore('files', () => {
       // Update opened files
       const fileIndex = openedFiles.value.findIndex((file) => file.path === oldPath);
       if (fileIndex >= 0) {
-        openedFiles.value[fileIndex].path = newPath;
-      }
+  const existing = openedFiles.value[fileIndex]!;
+  openedFiles.value[fileIndex] = {
+    path: newPath,
+    content: existing.content,
+    language: existing.language,
+    modified: existing.modified,
+  };
+  }
 
       // Reload directory
       await loadDirectory(currentDirectory.value);
@@ -227,11 +233,26 @@ export const useFileStore = defineStore('files', () => {
 
   function updateFileContent(content: string) {
     if (activeFileIndex.value >= 0) {
-      openedFiles.value[activeFileIndex.value] = {
-        ...openedFiles.value[activeFileIndex.value],
-        content,
-        modified: true,
-      };
+	const existing = openedFiles.value[activeFileIndex.value]!;
+  openedFiles.value[activeFileIndex.value] = {
+    path: existing.path,
+    content,
+    language: existing.language,
+    modified: true,
+  };
+    }
+  }
+
+  // 从磁盘刷新当前活动文件内容（不标记为已修改）
+  function refreshActiveFileContentFromDisk(content: string) {
+    if (activeFileIndex.value >= 0) {
+	const existing = openedFiles.value[activeFileIndex.value]!;
+  openedFiles.value[activeFileIndex.value] = {
+    path: existing.path,
+    content,
+    language: existing.language,
+    modified: false,
+  };
     }
   }
 
@@ -318,6 +339,7 @@ export const useFileStore = defineStore('files', () => {
     deleteFile,
     renameFile,
     updateFileContent,
+    refreshActiveFileContentFromDisk,
     closeFile,
     closeAllFiles,
     setActiveFile,
