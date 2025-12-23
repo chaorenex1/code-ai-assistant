@@ -1,8 +1,7 @@
 {
-  "identifier": "desktop",
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
   "description": "Default capabilities for Code AI Assistant",
-  "platforms": ["macOS", "windows", "linux"],
-  "webviews": ["main"],
   "windows": ["main"],
   "permissions": [
     "core:default",

@@ -44,7 +44,7 @@ impl DatabasePool {
         opt.max_connections(max_connections)
             .min_connections(min_connections)
             .sqlx_logging(true)
-            .sqlx_logging_level(tracing::log::LevelFilter::Info);
+            .sqlx_logging_level(tracing::log::LevelFilter::Debug);
 
         info!("Connecting to database: {}", database_url);
 

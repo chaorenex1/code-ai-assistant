@@ -2,7 +2,6 @@ import { invoke } from '@tauri-apps/api/core';
 
 import type {
   FileEntry,
-  FileContent,
   AIModel,
   Workspace,
   CommandResult,
@@ -10,7 +9,7 @@ import type {
 } from '@/utils/types';
 
 // File system commands
-export async function readFile(path: string): Promise<FileContent> {
+export async function readFile(path: string): Promise<string> {
   return invoke('read_file', { path });
 }
 
@@ -218,8 +217,8 @@ export async function withErrorHandling<T>(
 }
 
 // Batch operations
-export async function batchReadFiles(paths: string[]): Promise<Record<string, FileContent>> {
-  const results: Record<string, FileContent> = {};
+export async function batchReadFiles(paths: string[]): Promise<Record<string, string>> {
+  const results: Record<string, string> = {};
 
   for (const path of paths) {
     try {

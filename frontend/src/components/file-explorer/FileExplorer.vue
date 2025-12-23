@@ -117,6 +117,8 @@ async function handleNodeClick(data: FileNode, node: any) {
     node.expanded = !node.expanded;
   } else {
     try {
+      // 显示加载状态
+      fileStore.isLoading = true;
       await fileStore.openFile(data.path);
       appStore.setCurrentFile(data.path);
     } catch (error) {
@@ -124,6 +126,9 @@ async function handleNodeClick(data: FileNode, node: any) {
       ElMessage.error(
         (error instanceof Error && error.message) || '打开文件失败（可能不是文本文件或编码不兼容）'
       );
+    } finally {
+      // 确保加载状态被清除
+      fileStore.isLoading = false;
     }
   }
 }

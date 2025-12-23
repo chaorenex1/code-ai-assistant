@@ -42,6 +42,7 @@ fn main() {
         // Register Tauri commands
         .invoke_handler(tauri::generate_handler![
             tauri_module::commands::read_file,
+            tauri_module::commands::open_file,
             tauri_module::commands::write_file,
             tauri_module::commands::list_files,
             tauri_module::commands::create_file,
@@ -88,7 +89,7 @@ fn main() {
             database::connection::init(app)?;
 
             // Register event handlers
-            tauri_module::events::register_event_handlers(app)?;
+            tauri_module::event_handlers::register_event_handlers(app)?;
 
             info!("Application setup completed successfully");
             Ok(())

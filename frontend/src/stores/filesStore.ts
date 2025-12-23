@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { readFile } from '@/services/tauri/commands';
+import { MAX_FILE_SIZE } from '@/utils/constants';
 
 export interface FileItem {
   name: string;
@@ -89,12 +91,37 @@ export const useFileStore = defineStore('files', () => {
         return openedFiles.value[existingIndex];
       }
 
-      // Read file content
-      const content = await invoke('read_file', { path });
+      // Check file size before reading
+      const dirPath = path.substring(0, path.lastIndexOf('/')) || '.';
+      const fileName = path.substring(path.lastIndexOf('/') + 1);
+      
+      try {
+        const fileList = await invoke('list_files', { path: dirPath }) as Array<{name: string, path: string, is_directory: boolean, size: number}>;
+        const file = fileList.find(f => f.name === fileName);
+        
+        if (file && file.size > MAX_FILE_SIZE) {
+          throw new Error(`文件过大 (${(file.size / 1024 / 1024).toFixed(2)} MB)，最大支持 ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(2)} MB`);
+        }
+      } catch (sizeCheckError) {
+        // 如果无法检查文件大小，继续尝试读取文件
+        console.warn('无法检查文件大小:', sizeCheckError);
+      }
+
+      // Read file content with timeout protection
+      let content: string;
+      try {
+        // 添加超时控制
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('文件读取超时')), 10000)
+        );
+        content = await Promise.race([readFile(path), timeoutPromise]) as string;
+      } catch (timeoutError) {
+        throw new Error('文件读取超时，请检查文件大小或权限');
+      }
 
       const fileContent: FileContent = {
         path,
-        content: content as string,
+        content,
         language: getLanguageFromPath(path),
         modified: false,
       };
