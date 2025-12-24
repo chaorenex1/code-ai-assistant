@@ -69,9 +69,11 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": [],
       "dialog": true,
-      "pubkey": ""
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZDM0FFQjhERTlGNDE2RjgKUldUNEZ2VHBqZXM2YkVpRjFuYVdDTEIrTDZUcnhkc040ZVRuR3JQMGtFamwzWVArd25tWlF3eWgK",
+      "windows": {
+          "installMode": "passive"
+        }
     },
     "singleInstance": {
       "identifier": "code-ai-assistant"
