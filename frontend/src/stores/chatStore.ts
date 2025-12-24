@@ -13,7 +13,6 @@ import type {
   ChatSession,
   SendMessageOptions,
   AiResponseEventPayload,
-  ClipboardAttachment,
   FileMetadata,
 } from '@/utils/types';
 
