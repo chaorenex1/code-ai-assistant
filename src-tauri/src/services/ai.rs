@@ -12,6 +12,8 @@ use tracing::{debug, info, warn};
 
 use crate::utils::error::{AppError, AppResult};
 
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CodeagentWrapperConfig {
     /// Optional explicit path to `codeagent-wrapper` binary.
@@ -404,6 +406,10 @@ impl AiService {
         }
 
         let mut cmd = Command::new(&bin);
+        #[cfg(windows)]
+        {
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
         cmd.args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
