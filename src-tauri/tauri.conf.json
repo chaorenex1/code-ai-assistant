@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Code AI Assistant",
   "version": "1.0.5",
-  "identifier": "codeai-assistant",
+  "identifier": "code-ai-assistant",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:5173",
