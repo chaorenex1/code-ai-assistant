@@ -109,6 +109,9 @@ export async function sendChatMessageStreaming(
   workspaceDir?: string,
   codeCliChanged?: boolean,
   codeCliTaskId?: string | null,
+  directCli?: boolean,
+  cliCommand?: string,
+  cliArgs?: string[],
 ): Promise<string> {
   return invoke('send_chat_message_streaming', {
     message,
@@ -120,6 +123,9 @@ export async function sendChatMessageStreaming(
     workspaceDir,
     codeCliChanged,
     codeCliTaskId,
+    directCli,
+    cliCommand,
+    cliArgs,
   });
 }
 

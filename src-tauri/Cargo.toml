@@ -15,46 +15,50 @@ readme = "README.md"
 tauri-build = { version = "^2.0.0", features = [] }
 
 [dependencies]
-tauri = { version = "^2.0.0", features = ["protocol-asset", "tray-icon"] }
-serde = { version = "^1.0", features = ["derive"] }
-serde_json = "^1.0"
-tokio = { version = "^1.0", features = ["full"] }
-reqwest = { version = "^0.12", features = ["json", "default-tls"] }
-anyhow = "^1.0"
-thiserror = "^2.0.17"
-tracing = "^0.1"
-tracing-subscriber = { version = "^0.3", features = ["env-filter", "local-time"] }
-tracing-appender = "^0.2"
-config = "^0.15.19"
-time = "^0.3"
-sea-orm = { version = "^1.1.19", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
-chrono = { version = "^0.4", features = ["serde"] }
-uuid = { version = "^1.0", features = ["v4", "serde"] }
-toml = "^0.8"
-dirs = "^5.0"
-sysinfo = "^0.31"
-sea-orm-migration = { version = "^1.1.19", features = ["sqlx-sqlite", "runtime-tokio-rustls"] }
+tauri = { version = "^2.0.0", features = ["protocol-asset"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "default-tls"] }
+anyhow = "1.0"
+thiserror = "2.0.17"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "local-time"] }
+tracing-appender = "0.2"
+time = { version = "0.3", features = ["macros", "formatting"] }
+config = "0.15.19"
+clap = { version = "4.0", features = ["derive"] }
+sea-orm = { version = "0.12", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sea-orm-migration = { version = "0.12", features = ["sqlx-sqlite", "runtime-tokio-rustls"] }
+sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+toml = "0.8"
+dirs = "5.0"
+sysinfo = "0.31"
 
 # Tauri plugins
-tauri-plugin-store = "^2.0.0"
-tauri-plugin-updater = "^2.0.0"
-tauri-plugin-single-instance = "^2.0.0"
-tauri-plugin-deep-link = "^2.0.0"
-tauri-plugin-shell = "^2.0.0"
-tauri-plugin-fs = "^2.0.0"
-tauri-plugin-process = "^2.0.0"
-tauri-plugin-dialog = "^2.0.0"
-tauri-plugin-global-shortcut = "^2.0.0"
-tauri-plugin-notification = "^2.0.0"
+tauri-plugin-log = "2.0.0"
+tauri-plugin-store = "2.0.0"
+tauri-plugin-updater = "2.0.0"
+tauri-plugin-single-instance = "2.0.0"
+tauri-plugin-deep-link = "2.0.0"
+tauri-plugin-shell = "2.0.0"
+tauri-plugin-fs = "2.0.0"
+tauri-plugin-process = "2.0.0"
+tauri-plugin-dialog = "2.0.0"
+tauri-plugin-global-shortcut = "2.0.0"
+tauri-plugin-notification = "2.0.0"
+
 [dev-dependencies]
-proptest = "^1.4"
-tempfile = "^3.8"
+proptest = "1.4"
+tempfile = "3.8"
 
 [features]
 default = []
 
 [package.metadata.bundle]
-identifier = "codeai-assistant"
+identifier = "com.aduib.codeai.assistant"
 
 [package.metadata.tauri-winres]
 ProductName = "Code AI Assistant"

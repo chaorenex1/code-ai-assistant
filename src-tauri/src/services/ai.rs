@@ -211,37 +211,7 @@ impl AiService {
                     .or_else(|| self.get_codeagent_config().workdir.clone())
                     .unwrap_or_else(|| ".".to_string());
 
-        let task = if let Some(files) = &_context_files {
-            if !files.is_empty() {
-                let mut segments: Vec<String> = Vec::new();
-                for file_path in files {
-                    match fs::read_to_string(file_path) {
-                        Ok(content) => {
-                            segments.push(format!("@{}\n{}", file_path, content));
-                        }
-                        Err(err) => {
-                            warn!(
-                                path = %file_path,
-                                error = %err,
-                                "Failed to read context file"
-                            );
-                        }
-                    }
-                }
-
-                if !segments.is_empty() {
-                    let mut prefix = segments.join("\n");
-                    prefix.push_str("\n\n");
-                    format!("{}{}", prefix, message)
-                } else {
-                    message.to_string()
-                }
-            } else {
-                message.to_string()
-            }
-        } else {
-            message.to_string()
-        };
+        let task = Self::build_task_with_context(message, _context_files.as_deref());
 
         let result = self
             .run_codeagent_wrapper(CodeagentRunSpec {
@@ -290,7 +260,7 @@ impl AiService {
         }
     }
 
-    fn derive_backend_from_code_cli(code_cli: &str) -> Option<String> {
+    pub(crate) fn derive_backend_from_code_cli(code_cli: &str) -> Option<String> {
         let v = code_cli.trim().to_lowercase();
         if v.is_empty() {
             return None;
@@ -304,6 +274,39 @@ impl AiService {
         } else {
             None
         }
+    }
+
+    pub(crate) fn build_task_with_context(
+        message: &str,
+        context_files: Option<&[String]>,
+    ) -> String {
+        if let Some(files) = context_files {
+            if !files.is_empty() {
+                let mut segments: Vec<String> = Vec::new();
+                for file_path in files {
+                    match fs::read_to_string(file_path) {
+                        Ok(content) => {
+                            segments.push(format!("@{}\n{}", file_path, content));
+                        }
+                        Err(err) => {
+                            warn!(
+                                path = %file_path,
+                                error = %err,
+                                "Failed to read context file"
+                            );
+                        }
+                    }
+                }
+
+                if !segments.is_empty() {
+                    let mut prefix = segments.join("\n");
+                    prefix.push_str("\n\n");
+                    return format!("{}{}", prefix, message);
+                }
+            }
+        }
+
+        message.to_string()
     }
 
     fn is_executable_file(path: &Path) -> bool {

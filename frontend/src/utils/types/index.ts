@@ -79,6 +79,7 @@ export interface AISettings {
   topP: number;
   model_list?: string[];
   code_cli?: string[];
+  useDirectCodeCli?: boolean;
 }
 
 export interface PathSettings {
@@ -197,6 +198,9 @@ export interface SendMessageOptions {
   workspaceDir?: string;
   model?: string;
   clipboardAttachments?: ClipboardAttachment[];
+  directCli?: boolean;
+  cliCommand?: string;
+  cliArgs?: string[];
 }
 
 export interface ChatMessage {

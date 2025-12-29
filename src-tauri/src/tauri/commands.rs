@@ -9,9 +9,13 @@ use std::sync::{Arc, Mutex};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use tauri::{AppHandle, Manager, State};
-use tracing::{error, info, debug};
+use tracing::{error, info, debug, warn};
 use tauri::async_runtime;
+use tokio::io::{AsyncRead, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::process::Command;
 use tokio::sync::oneshot;
+use tokio::time::sleep;
+use serde_json::Value;
 use crate::core::{AppState, app::StreamingTaskHandle};
 use crate::services::ai::{AiChatOptions, AiService};
 use crate::services::chat_session::{self, ChatMessage};
@@ -49,6 +53,9 @@ pub async fn send_chat_message_streaming(
     workspace_dir: Option<String>,
     code_cli_changed: Option<bool>,
     code_cli_task_id: Option<String>,
+    direct_cli: Option<bool>,
+    cli_command: Option<String>,
+    cli_args: Option<Vec<String>>,
 ) -> Result<String, String> {
     debug!("Sending chat message (streaming): {}", message);
     debug!(
@@ -82,7 +89,7 @@ pub async fn send_chat_message_streaming(
     let request_id_for_task = request_id.clone();
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
-    // 将实际消息处理与流式发送放到后台任务中，避免阻塞当前命令
+    // Spawn the streaming task in the background.
     let msg = message.clone();
     let ctx_files = context_files.clone();
     let msg_for_spawn = msg.clone();
@@ -94,126 +101,405 @@ pub async fn send_chat_message_streaming(
     let workspace_dir_for_task = workspace_dir.clone();
     let code_cli_task_id_for_resume = code_cli_task_id.clone();
     let code_cli_changed_flag = code_cli_changed;
+    let direct_cli_enabled = direct_cli.unwrap_or(false);
+    let cli_command_for_task = cli_command.clone().unwrap_or_default();
+    let cli_args_for_task = cli_args.clone().unwrap_or_default();
+    let env_vars_for_task = config.env_vars.clone();
 
     let app_handle_for_task = app_handle.clone();
     let request_id_for_spawn = request_id_for_task.clone();
-    let join_handle = async_runtime::spawn(async move {
-        let ai = AiService::new();
-        match ai
-            .send_message_with_options(
-                &msg,
-                ctx_files,
-                AiChatOptions {
-                    code_cli: code_cli_for_task,
-                    resume_session_id: code_cli_task_id_for_resume,
-                    parallel: false,
-                    codex_model: codex_model_for_task,
-                    workspace_dir: workspace_dir_for_task,
-                    code_cli_changed: code_cli_changed_flag,
-                    env: config.env_vars.clone(),
-                    cancel_rx: Some(cancel_rx),
-                },
-            )
-            .await
-        {   
-            Ok(result) => {
-                debug!("AI response: {}", result.message);
-                let chars: Vec<char> = result.message.chars().collect();
-                let total = chars.len();
-                let mut buffer = String::new();
-                let mut full_response = String::new();
+    let join_handle = if direct_cli_enabled {
+        let cancel_rx = cancel_rx;
+        async_runtime::spawn(async move {
+            let mut cancel_rx = Some(cancel_rx);
+            sleep(Duration::from_millis(30)).await;
 
-                for (idx, ch) in chars.into_iter().enumerate() {
-                    buffer.push(ch);
+            if cli_command_for_task.trim().is_empty() {
+                let _ = emit_ai_response(
+                    &app_handle_for_task,
+                    &request_id_for_spawn,
+                    "[AI error] Direct CLI enabled but command is empty.",
+                    true,
+                    Some(&session_id),
+                    workspace_id_for_append.as_deref(),
+                    None,
+                );
+                return;
+            }
 
-                    let is_last = idx + 1 == total;
-                    // 每凑够一定长度，或者到达结尾，就发送一块增量
-                    if buffer.len() >= 32 || is_last {
-                        let delta = buffer.clone();
-                        buffer.clear();
+            let task = AiService::build_task_with_context(&msg, ctx_files.as_deref());
+            let workdir = workspace_dir_for_task.clone().unwrap_or_else(|| ".".to_string());
+            let backend = code_cli_for_task
+                .as_deref()
+                .and_then(AiService::derive_backend_from_code_cli)
+                .or_else(|| derive_backend_from_command(&cli_command_for_task));
+            let direct_plan = build_direct_cli_plan(
+                backend.as_deref(),
+                &cli_args_for_task,
+                code_cli_task_id_for_resume.as_deref(),
+                code_cli_changed_flag,
+            );
+            let direct_args = direct_plan.args;
+            let mut direct_task_id = direct_plan.task_id.clone();
 
-                        let codeagent_session_id = if is_last {
-                            result.codeagent_session_id.clone()
-                        } else {
-                            None
-                        };
-                        full_response.push_str(&delta);
+            let mut cmd = Command::new(&cli_command_for_task);
+            #[cfg(windows)]
+            {
+                cmd.creation_flags(CREATE_NO_WINDOW);
+            }
+            cmd.args(&direct_args)
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .current_dir(&workdir);
+            for (key, value) in &env_vars_for_task {
+                cmd.env(key, value);
+            }
 
-                        if let Err(e) = emit_ai_response(
-                            &app_handle_for_task,
-                            &request_id_for_spawn,
-                            &delta,
-                            is_last,
-                            Some(&session_id),
-                            workspace_id_for_append.as_deref(),
-                            codeagent_session_id.as_deref(),
-                        ) {
-                            error!("Failed to emit AI response chunk: {:?}", e);
-                            break;
+            let mut child = match cmd.spawn() {
+                Ok(child) => child,
+                Err(e) => {
+                    let _ = emit_ai_response(
+                        &app_handle_for_task,
+                        &request_id_for_spawn,
+                        &format!("[AI error] Failed to start CLI: {}", e),
+                        true,
+                        Some(&session_id),
+                        workspace_id_for_append.as_deref(),
+                        None,
+                    );
+                    return;
+                }
+            };
+
+            if let Some(mut stdin) = child.stdin.take() {
+                let mut input = task.clone();
+                if !input.ends_with('\n') {
+                    input.push('\n');
+                }
+                if let Err(e) = stdin.write_all(input.as_bytes()).await {
+                    warn!("Failed to write CLI stdin: {}", e);
+                }
+            }
+
+            let mut stdout_reader = child.stdout.take().map(BufReader::new);
+            let mut stderr_reader = child.stderr.take().map(BufReader::new);
+            let mut stdout_done = stdout_reader.is_none();
+            let mut stderr_done = stderr_reader.is_none();
+            let mut stdout_line = String::new();
+            let mut stderr_line = String::new();
+            let mut full_response = String::new();
+
+            while !stdout_done || !stderr_done {
+                if let Some(cancel_fut) = cancel_rx.as_mut() {
+                    tokio::select! {
+                        _ = cancel_fut => {
+                            if let Err(e) = child.kill().await {
+                                warn!("Failed to kill direct CLI after cancellation: {}", e);
+                            }
+                            return;
                         }
-
-                        // 模拟流式延迟效果（阻塞当前后台任务线程即可）
-                        std::thread::sleep(Duration::from_millis(60));
+                        read = read_line_if_available(&mut stdout_reader, &mut stdout_line), if !stdout_done => {
+                            match read {
+                                Ok(0) => stdout_done = true,
+                                Ok(_) => {
+                                    if let Some(id) = parse_cli_session_id(&stdout_line, backend.as_deref()) {
+                                        if should_replace_task_id(direct_task_id.as_deref(), &id) {
+                                            direct_task_id = Some(id);
+                                        }
+                                    }
+                                    let delta = stdout_line.clone();
+                                    full_response.push_str(&delta);
+                                    let _ = emit_ai_response(
+                                        &app_handle_for_task,
+                                        &request_id_for_spawn,
+                                        &delta,
+                                        false,
+                                        Some(&session_id),
+                                        workspace_id_for_append.as_deref(),
+                                        None,
+                                    );
+                                }
+                                Err(e) => {
+                                    warn!("Failed to read CLI stdout: {}", e);
+                                    stdout_done = true;
+                                }
+                            }
+                        }
+                        read = read_line_if_available(&mut stderr_reader, &mut stderr_line), if !stderr_done => {
+                            match read {
+                                Ok(0) => stderr_done = true,
+                                Ok(_) => {
+                                    let delta = format!("[stderr] {}", stderr_line);
+                                    full_response.push_str(&delta);
+                                    let _ = emit_ai_response(
+                                        &app_handle_for_task,
+                                        &request_id_for_spawn,
+                                        &delta,
+                                        false,
+                                        Some(&session_id),
+                                        workspace_id_for_append.as_deref(),
+                                        None,
+                                    );
+                                }
+                                Err(e) => {
+                                    warn!("Failed to read CLI stderr: {}", e);
+                                    stderr_done = true;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    tokio::select! {
+                        read = read_line_if_available(&mut stdout_reader, &mut stdout_line), if !stdout_done => {
+                            match read {
+                                Ok(0) => stdout_done = true,
+                                Ok(_) => {
+                                    if let Some(id) = parse_cli_session_id(&stdout_line, backend.as_deref()) {
+                                        if should_replace_task_id(direct_task_id.as_deref(), &id) {
+                                            direct_task_id = Some(id);
+                                        }
+                                    }
+                                    let delta = stdout_line.clone();
+                                    full_response.push_str(&delta);
+                                    let _ = emit_ai_response(
+                                        &app_handle_for_task,
+                                        &request_id_for_spawn,
+                                        &delta,
+                                        false,
+                                        Some(&session_id),
+                                        workspace_id_for_append.as_deref(),
+                                        None,
+                                    );
+                                }
+                                Err(e) => {
+                                    warn!("Failed to read CLI stdout: {}", e);
+                                    stdout_done = true;
+                                }
+                            }
+                        }
+                        read = read_line_if_available(&mut stderr_reader, &mut stderr_line), if !stderr_done => {
+                            match read {
+                                Ok(0) => stderr_done = true,
+                                Ok(_) => {
+                                    let delta = format!("[stderr] {}", stderr_line);
+                                    full_response.push_str(&delta);
+                                    let _ = emit_ai_response(
+                                        &app_handle_for_task,
+                                        &request_id_for_spawn,
+                                        &delta,
+                                        false,
+                                        Some(&session_id),
+                                        workspace_id_for_append.as_deref(),
+                                        None,
+                                    );
+                                }
+                                Err(e) => {
+                                    warn!("Failed to read CLI stderr: {}", e);
+                                    stderr_done = true;
+                                }
+                            }
+                        }
                     }
                 }
-                
-                if let Some(task_id) = result.codeagent_session_id.clone() {
-                    let user_message = ChatMessage {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        role: "user".to_string(),
-                        content: msg_for_spawn.clone(),
-                        timestamp: chrono::Local::now().to_rfc3339().to_string(),
-                        files: None,
-                        session_id: Some(session_id.clone()),
-                        workspace_id: workspace_id_for_append.clone(),
-                        model: None,
-                    };
-                    let assistant_message = ChatMessage {
-                        id: request_id_for_spawn.clone(),
-                        role: "assistant".to_string(),
-                        content: full_response,
-                        timestamp: chrono::Local::now().to_rfc3339(),
-                        files: None,
-                        session_id: Some(session_id.clone()),
-                        workspace_id: workspace_id_for_append.clone(),
-                        model: None,
-                    };
-                    if let Err(e) = chat_session::append_message_to_session(
-                        &session_id,
-                        vec![user_message, assistant_message],
-                        code_cli_for_append.clone(),
-                        Some(task_id.clone()),
-                    ) {
-                        error!(
-                            "Failed to append chat messages to session {}: {}",
-                            session_id, e
+            }
+
+            let exit_status = match child.wait().await {
+                Ok(status) => status,
+                Err(e) => {
+                    let _ = emit_ai_response(
+                        &app_handle_for_task,
+                        &request_id_for_spawn,
+                        &format!("[AI error] Failed to wait for CLI: {}", e),
+                        true,
+                        Some(&session_id),
+                        workspace_id_for_append.as_deref(),
+                        None,
+                    );
+                    return;
+                }
+            };
+            let exit_code = exit_status.code().unwrap_or(-1);
+            let success = exit_code == 0;
+            if !success {
+                let delta = format!("[exit {}] CLI exited with errors\n", exit_code);
+                full_response.push_str(&delta);
+                let _ = emit_ai_response(
+                    &app_handle_for_task,
+                    &request_id_for_spawn,
+                    &delta,
+                    true,
+                    Some(&session_id),
+                    workspace_id_for_append.as_deref(),
+                    None,
+                );
+            } else {
+                let _ = emit_ai_response(
+                    &app_handle_for_task,
+                    &request_id_for_spawn,
+                    "",
+                    true,
+                    Some(&session_id),
+                    workspace_id_for_append.as_deref(),
+                    direct_task_id.as_deref(),
+                );
+            }
+
+            if success {
+                let user_message = ChatMessage {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    role: "user".to_string(),
+                    content: msg_for_spawn.clone(),
+                    timestamp: chrono::Local::now().to_rfc3339().to_string(),
+                    files: None,
+                    session_id: Some(session_id.clone()),
+                    workspace_id: workspace_id_for_append.clone(),
+                    model: None,
+                };
+                let assistant_message = ChatMessage {
+                    id: request_id_for_spawn.clone(),
+                    role: "assistant".to_string(),
+                    content: full_response,
+                    timestamp: chrono::Local::now().to_rfc3339(),
+                    files: None,
+                    session_id: Some(session_id.clone()),
+                    workspace_id: workspace_id_for_append.clone(),
+                    model: None,
+                };
+                if let Err(e) = chat_session::append_message_to_session(
+                    &session_id,
+                    vec![user_message, assistant_message],
+                    code_cli_for_append.clone(),
+                    direct_task_id.clone(),
+                ) {
+                    error!(
+                        "Failed to append chat messages to session {}: {}",
+                        session_id, e
+                    );
+                }
+            }
+        })
+    } else {
+        let cancel_rx = cancel_rx;
+        async_runtime::spawn(async move {
+            let ai = AiService::new();
+            match ai
+                .send_message_with_options(
+                    &msg,
+                    ctx_files,
+                    AiChatOptions {
+                        code_cli: code_cli_for_task,
+                        resume_session_id: code_cli_task_id_for_resume,
+                        parallel: false,
+                        codex_model: codex_model_for_task,
+                        workspace_dir: workspace_dir_for_task,
+                        code_cli_changed: code_cli_changed_flag,
+                        env: env_vars_for_task,
+                        cancel_rx: Some(cancel_rx),
+                    },
+                )
+                .await
+            {   
+                Ok(result) => {
+                    debug!("AI response: {}", result.message);
+                    let chars: Vec<char> = result.message.chars().collect();
+                    let total = chars.len();
+                    let mut buffer = String::new();
+                    let mut full_response = String::new();
+
+                    for (idx, ch) in chars.into_iter().enumerate() {
+                        buffer.push(ch);
+
+                        let is_last = idx + 1 == total;
+                        // Send a chunk once the buffer is big enough or we're at the end.
+                        if buffer.len() >= 32 || is_last {
+                            let delta = buffer.clone();
+                            buffer.clear();
+
+                            let codeagent_session_id = if is_last {
+                                result.codeagent_session_id.clone()
+                            } else {
+                                None
+                            };
+                            full_response.push_str(&delta);
+
+                            if let Err(e) = emit_ai_response(
+                                &app_handle_for_task,
+                                &request_id_for_spawn,
+                                &delta,
+                                is_last,
+                                Some(&session_id),
+                                workspace_id_for_append.as_deref(),
+                                codeagent_session_id.as_deref(),
+                            ) {
+                                error!("Failed to emit AI response chunk: {:?}", e);
+                                break;
+                            }
+
+                            // Simulate streaming delay by sleeping inside the task.
+                            std::thread::sleep(Duration::from_millis(60));
+                        }
+                    }
+                    
+                    if let Some(task_id) = result.codeagent_session_id.clone() {
+                        let user_message = ChatMessage {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            role: "user".to_string(),
+                            content: msg_for_spawn.clone(),
+                            timestamp: chrono::Local::now().to_rfc3339().to_string(),
+                            files: None,
+                            session_id: Some(session_id.clone()),
+                            workspace_id: workspace_id_for_append.clone(),
+                            model: None,
+                        };
+                        let assistant_message = ChatMessage {
+                            id: request_id_for_spawn.clone(),
+                            role: "assistant".to_string(),
+                            content: full_response,
+                            timestamp: chrono::Local::now().to_rfc3339(),
+                            files: None,
+                            session_id: Some(session_id.clone()),
+                            workspace_id: workspace_id_for_append.clone(),
+                            model: None,
+                        };
+                        if let Err(e) = chat_session::append_message_to_session(
+                            &session_id,
+                            vec![user_message, assistant_message],
+                            code_cli_for_append.clone(),
+                            Some(task_id.clone()),
+                        ) {
+                            error!(
+                                "Failed to append chat messages to session {}: {}",
+                                session_id, e
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    if matches!(e, AppError::Cancelled(_)) {
+                        debug!(
+                            request_id = %request_id_for_spawn,
+                            "AI streaming cancelled before completion"
+                        );
+                    } else {
+                        error!("Failed to build AI response for streaming: {}", e);
+                        let _ = emit_ai_response(
+                            &app_handle_for_task,
+                            &request_id_for_spawn,
+                            &format!("[AI error] {}", e),
+                            true,
+                            None,
+                            workspace_id_for_append.as_deref(),
+                            None,
                         );
                     }
                 }
             }
-            Err(e) => {
-                if matches!(e, AppError::Cancelled(_)) {
-                    debug!(
-                        request_id = %request_id_for_spawn,
-                        "AI streaming cancelled before completion"
-                    );
-                } else {
-                    error!("Failed to build AI response for streaming: {}", e);
-                    let _ = emit_ai_response(
-                        &app_handle_for_task,
-                        &request_id_for_spawn,
-                        &format!("[AI 错误] {}", e),
-                        true,
-                        None,
-                        workspace_id_for_append.as_deref(),
-                        None,
-                    );
-                }
-            }
-        }
-    });
+        })
+    };
 
     let handle_entry = Arc::new(StreamingTaskHandle::new(join_handle, cancel_tx));
+
     {
         let state = app_handle.state::<AppState>();
         state
@@ -247,6 +533,262 @@ pub async fn send_chat_message_streaming(
     Ok(request_id)
 }
 
+
+async fn read_line_if_available<R: AsyncRead + Unpin>(
+    reader: &mut Option<BufReader<R>>,
+    buf: &mut String,
+) -> std::io::Result<usize> {
+    if let Some(reader) = reader.as_mut() {
+        buf.clear();
+        reader.read_line(buf).await
+    } else {
+        Ok(0)
+    }
+}
+
+fn build_direct_cli_args(backend: Option<&str>, user_args: &[String]) -> Vec<String> {
+    let mut args = user_args.to_vec();
+    match backend.map(|b| b.to_lowercase()) {
+        Some(ref backend) if backend == "claude" => {
+            if !has_cli_arg(&args, "-p") && !has_cli_arg(&args, "--print") {
+                args.push("--print".to_string());
+            }
+            if !has_cli_arg(&args, "--output-format") {
+                args.push("--output-format".to_string());
+                args.push("text".to_string());
+            }
+        }
+        Some(ref backend) if backend == "codex" => {
+            if !has_codex_subcommand(&args) {
+                args.insert(0, "exec".to_string());
+            }
+        }
+        Some(ref backend) if backend == "gemini" => {
+            if !has_cli_arg(&args, "--output-format") && !has_cli_arg(&args, "-o") {
+                args.push("--output-format".to_string());
+                args.push("text".to_string());
+            }
+        }
+        _ => {}
+    }
+    args
+}
+
+struct DirectCliPlan {
+    args: Vec<String>,
+    task_id: Option<String>,
+}
+
+fn build_direct_cli_plan(
+    backend: Option<&str>,
+    user_args: &[String],
+    resume_session_id: Option<&str>,
+    code_cli_changed: Option<bool>,
+) -> DirectCliPlan {
+    let mut args = build_direct_cli_args(backend, user_args);
+    let allow_resume = resume_session_id.filter(|_| !code_cli_changed.unwrap_or(false));
+    let mut task_id: Option<String> = None;
+
+    match backend.map(|b| b.to_lowercase()) {
+        Some(ref backend) if backend == "claude" => {
+            let existing_resume = get_flag_value(&args, "--resume")
+                .or_else(|| get_flag_value(&args, "-r"));
+            let existing_session_id = get_flag_value(&args, "--session-id");
+            let has_continue = has_cli_arg(&args, "--continue") || has_cli_arg(&args, "-c");
+            if let Some(id) = existing_session_id {
+                task_id = Some(id);
+            } else if let Some(id) = existing_resume {
+                task_id = Some(id);
+            } else if has_continue {
+                task_id = Some("latest".to_string());
+            } else if let Some(id) = allow_resume {
+                args.push("--resume".to_string());
+                args.push(id.to_string());
+                task_id = Some(id.to_string());
+            } else {
+                let id = uuid::Uuid::new_v4().to_string();
+                args.push("--session-id".to_string());
+                args.push(id.clone());
+                task_id = Some(id);
+            }
+        }
+        Some(ref backend) if backend == "codex" => {
+            let has_resume = has_codex_resume_subcommand(&args);
+            if let Some(id) = allow_resume {
+                if !has_codex_subcommand(&args) {
+                    args.insert(0, "resume".to_string());
+                } else if has_codex_exec_subcommand(&args) {
+                    replace_codex_subcommand(&mut args, "resume");
+                }
+                let using_resume = has_codex_resume_subcommand(&args);
+                if using_resume {
+                    if id.eq_ignore_ascii_case("last") {
+                        if !has_cli_arg(&args, "--last") {
+                            args.push("--last".to_string());
+                        }
+                    } else {
+                        args.push(id.to_string());
+                    }
+                }
+                task_id = Some(id.to_string());
+            } else if has_resume {
+                task_id = Some("last".to_string());
+            } else {
+                task_id = Some("last".to_string());
+            }
+        }
+        Some(ref backend) if backend == "gemini" => {
+            let existing_resume = get_flag_value(&args, "--resume")
+                .or_else(|| get_flag_value(&args, "-r"));
+            if let Some(id) = existing_resume {
+                task_id = Some(id);
+            } else if let Some(id) = allow_resume {
+                args.push("--resume".to_string());
+                args.push(id.to_string());
+                task_id = Some(id.to_string());
+            } else {
+                task_id = Some("latest".to_string());
+            }
+        }
+        _ => {}
+    }
+
+    DirectCliPlan { args, task_id }
+}
+
+fn has_cli_arg(args: &[String], name: &str) -> bool {
+    args.iter().any(|arg| arg == name || arg.starts_with(&format!("{}=", name)))
+}
+
+fn has_codex_subcommand(args: &[String]) -> bool {
+    let cmd = args.iter().find(|arg| !arg.starts_with('-'));
+    if let Some(cmd) = cmd {
+        matches!(
+            cmd.as_str(),
+            "exec"
+                | "review"
+                | "login"
+                | "logout"
+                | "mcp"
+                | "mcp-server"
+                | "app-server"
+                | "completion"
+                | "sandbox"
+                | "apply"
+                | "resume"
+                | "cloud"
+                | "features"
+                | "help"
+        )
+    } else {
+        false
+    }
+}
+
+fn has_codex_exec_subcommand(args: &[String]) -> bool {
+    let cmd = args.iter().find(|arg| !arg.starts_with('-'));
+    matches!(cmd.map(|s| s.as_str()), Some("exec"))
+}
+
+fn has_codex_resume_subcommand(args: &[String]) -> bool {
+    let cmd = args.iter().find(|arg| !arg.starts_with('-'));
+    matches!(cmd.map(|s| s.as_str()), Some("resume"))
+}
+
+fn replace_codex_subcommand(args: &mut Vec<String>, replacement: &str) {
+    if let Some((idx, _)) = args.iter().enumerate().find(|(_, arg)| !arg.starts_with('-')) {
+        args[idx] = replacement.to_string();
+    } else {
+        args.insert(0, replacement.to_string());
+    }
+}
+
+fn get_flag_value(args: &[String], name: &str) -> Option<String> {
+    let flag = name.to_string();
+    for (idx, arg) in args.iter().enumerate() {
+        if arg == &flag {
+            return args.get(idx + 1).cloned();
+        }
+        if let Some(rest) = arg.strip_prefix(&(flag.clone() + "=")) {
+            return Some(rest.to_string());
+        }
+    }
+    None
+}
+
+fn should_replace_task_id(current: Option<&str>, incoming: &str) -> bool {
+    if incoming.trim().is_empty() {
+        return false;
+    }
+    match current {
+        None => true,
+        Some(current) => matches!(current, "latest" | "last"),
+    }
+}
+
+fn parse_cli_session_id(line: &str, backend: Option<&str>) -> Option<String> {
+    let trimmed = line.trim();
+    if trimmed.starts_with('{') && trimmed.ends_with('}') {
+        if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
+            if let Some(id) = parse_session_id_from_json(&value, backend) {
+                return Some(id);
+            }
+        }
+    }
+
+    let lowered = trimmed.to_lowercase();
+    if lowered.starts_with("session id:") {
+        return Some(trimmed["session id:".len()..].trim().to_string());
+    }
+
+    if let Some(idx) = lowered.find("session id:") {
+        return Some(trimmed[idx + "session id:".len()..].trim().to_string());
+    }
+
+    None
+}
+
+fn parse_session_id_from_json(value: &Value, backend: Option<&str>) -> Option<String> {
+    let backend = backend.unwrap_or("").to_lowercase();
+
+    let session_id = value
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    if session_id.is_some() {
+        return session_id;
+    }
+
+    if backend == "codex" {
+        if let Some(thread_id) = value.get("thread_id").and_then(|v| v.as_str()) {
+            return Some(thread_id.to_string());
+        }
+    }
+
+    if let Some(value_type) = value.get("type").and_then(|v| v.as_str()) {
+        if value_type == "thread.started" {
+            if let Some(thread_id) = value.get("thread_id").and_then(|v| v.as_str()) {
+                return Some(thread_id.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+fn derive_backend_from_command(command: &str) -> Option<String> {
+    let normalized = command.to_lowercase();
+    if normalized.contains("claude") {
+        Some("claude".to_string())
+    } else if normalized.contains("codex") {
+        Some("codex".to_string())
+    } else if normalized.contains("gemini") {
+        Some("gemini".to_string())
+    } else {
+        None
+    }
+}
+
 /// Save clipboard image to a temporary file and return its absolute path
 #[tauri::command]
 pub async fn save_clipboard_image(
@@ -257,11 +799,9 @@ pub async fn save_clipboard_image(
     if bytes.is_empty() {
         return Err("Clipboard image data is empty".to_string());
     }
+    let config = crate::core::app::get_config(app_handle.state::<AppState>());
 
-    let mut dir = app_handle
-        .path()
-        .app_cache_dir()
-        .map_err(|e| format!("Failed to resolve cache directory: {}", e))?;
+    let mut dir= PathBuf::from(&config.app.data_dir);
     dir.push("clipboard-images");
 
     if let Err(err) = fs::create_dir_all(&dir) {

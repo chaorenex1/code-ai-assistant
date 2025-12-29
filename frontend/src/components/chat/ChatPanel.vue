@@ -24,6 +24,7 @@ import { useFileStore, useAppStore, useChatStore } from '@/stores';
 import ChatHistoryDialog from '@/components/chat/ChatHistoryDialog.vue';
 import { normalizePath } from '@/utils/pathUtils';
 import { showSuccess, showError, showWarning } from '@/utils/toast';
+import { parseCliArgs } from '@/utils/helpers';
 
 const appStore = useAppStore();
 const fileStore = useFileStore();
@@ -133,6 +134,13 @@ async function sendMessage() {
   const content = message.value.trim();
   const contextFiles = [...associatedFiles.value, ...clipboardAttachments.map((entry) => entry.path)];
 
+  const directCli = appStore.settings.ai.useDirectCodeCli ?? false;
+  const selectedCli = appStore.settings.codeCli.find(
+    (cli) => cli.name === appStore.currentCodeCli
+  );
+  const cliCommand = selectedCli?.command?.trim() || '';
+  const cliArgs = selectedCli ? parseCliArgs(selectedCli.args || '') : [];
+
   try {
     await chatStore.sendMessage({
       content,
@@ -143,6 +151,9 @@ async function sendMessage() {
       resumeSessionId: '',
       model: appStore.currentAiModel,
       clipboardAttachments,
+      directCli,
+      cliCommand,
+      cliArgs,
     });
     message.value = '';
     clipboardImages.value = [];

@@ -1,7 +1,17 @@
 <script setup lang="ts">
 import { Plus, Delete, Edit } from '@element-plus/icons-vue';
-import { ElButton, ElTable, ElTableColumn, ElDialog, ElForm, ElFormItem, ElInput, ElMessageBox } from 'element-plus';
-import { ref,computed } from 'vue';
+import {
+  ElButton,
+  ElTable,
+  ElTableColumn,
+  ElDialog,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessageBox,
+  ElSwitch,
+} from 'element-plus';
+import { ref, computed } from 'vue';
 import { saveSettings as saveTauriSettings } from '@/services/tauri/commands';
 import { useAppStore } from '@/stores';
 import type { CodeCli } from '@/utils/types';
@@ -11,6 +21,12 @@ const appStore = useAppStore();
 // Code CLIs
 const codeClis = computed(() => {
   return appStore.settings.codeCli
+});
+const useDirectCodeCli = computed({
+  get: () => appStore.settings.ai.useDirectCodeCli ?? false,
+  set: (value: boolean) => {
+    appStore.settings.ai.useDirectCodeCli = value;
+  },
 });
 
 const newCodeCli = ref<CodeCli>({ name: '', command: '', args: '' });
@@ -132,6 +148,18 @@ async function saveSettings() {
     </div>
 
     <div class="settings-content bg-surface rounded-lg border border-border p-6 shadow-sm mt-6">
+      <div class="direct-cli-toggle">
+        <div class="direct-cli-toggle__text">
+          <div class="direct-cli-toggle__title">Direct Code CLI Streaming</div>
+          <div class="direct-cli-toggle__hint">
+            When enabled, the app skips codeagent-wrapper and streams CLI stdout directly.
+          </div>
+        </div>
+        <ElSwitch v-model="useDirectCodeCli" />
+      </div>
+
+      <div class="divider-line" />
+
       <ElTable v-if="codeClis.length > 0" :data="codeClis" style="width: 100%">
         <ElTableColumn prop="name" label="CLI名称" width="200" />
         <ElTableColumn prop="command" label="命令路径" />
@@ -196,6 +224,30 @@ async function saveSettings() {
 .settings-header {
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 16px;
+}
+
+.direct-cli-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.direct-cli-toggle__title {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.direct-cli-toggle__hint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.divider-line {
+  height: 1px;
+  background: var(--color-border);
+  margin: 12px 0 16px;
 }
 
 .empty-state {

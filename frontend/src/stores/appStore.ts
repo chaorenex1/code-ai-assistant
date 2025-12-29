@@ -48,6 +48,7 @@ export const useAppStore = defineStore('app', () => {
       topP: 1.0,
       model_list: ['claude-4', 'gpt-5', 'deepseek'],
       code_cli: ['claude-cli', 'codex-cli', 'gemini-cli'],
+      useDirectCodeCli: false,
     },
     paths: {
       nodejs: '',

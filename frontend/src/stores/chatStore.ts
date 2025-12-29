@@ -109,7 +109,10 @@ export const useChatStore = defineStore('chat', () => {
         options.workspaceId,
         options.workspaceDir,
         codeCliChanged.value,
-        resumeTaskId || null
+        resumeTaskId || null,
+        options.directCli,
+        options.cliCommand,
+        options.cliArgs
       );
       currentRequestId.value = requestId;
       if (codeCli) {
